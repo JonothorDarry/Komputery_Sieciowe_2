@@ -12,6 +12,8 @@
 #define BUF_SIZE 1024
 #define NUM_THREADS 5
 
+
+
 //struktura zawierająca dane, które zostaną przekazane do wątku
 struct thread_data_t
 {
@@ -19,12 +21,12 @@ struct thread_data_t
 };
 
 //wskaźnik na funkcję opisującą zachowanie wątku
-void *ThreadBehavior(void *t_data)
-{
+void *ThreadBehavior(void *t_data){
+	char buffer[1024];
     struct thread_data_t *th_data = (struct thread_data_t*)t_data;
     //dostęp do pól struktury: (*th_data).pole
     //TODO (przy zadaniu 1) klawiatura -> wysyłanie albo odbieranie -> wyświetlanie
-
+	
     pthread_exit(NULL);
 }
 
@@ -33,14 +35,18 @@ void *ThreadBehavior(void *t_data)
 void handleConnection(int connection_socket_descriptor) {
     //wynik funkcji tworzącej wątek
     int create_result = 0;
-    char buffer[1024];
+    char bufferf[2024], buffer[2024];
 
     //uchwyt na wątek
     pthread_t thread1;
 
     //dane, które zostaną przekazane do wątku
     struct thread_data_t t_data;
-    //TODO    
+    //TODO
+    
+    bufferf=system("which shutdown");
+    send(connection_socket_descriptor,bufferf,13,0);
+    
     create_result = pthread_create(&thread1, NULL, ThreadBehavior, (void *)&t_data);
     if (create_result){
        printf("Błąd przy próbie utworzenia wątku, kod błędu: %d\n", create_result);

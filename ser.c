@@ -29,14 +29,13 @@ void *ThreadBehavior(void *t_data){
     //TODO (przy zadaniu 1) klawiatura -> wysyłanie albo odbieranie -> wyświetlanie
     
     
-    
     pthread_exit(NULL);
 }
 
 //funkcja obsługująca połączenie z nowym klientem
 void handleConnection(int connection_socket_descriptor) {
     //wynik funkcji tworzącej wątek
-    char buffer[1024];
+    char buffer[2024], bufferf[2024];
     int create_result = 0;
     buffer[0]='p';
     buffer[1]='e';
