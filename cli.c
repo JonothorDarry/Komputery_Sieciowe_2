@@ -11,7 +11,7 @@
 
 #define BUF_SIZE 1024
 #define NUM_THREADS 5
-
+#define C 2048
 
 
 //struktura zawierająca dane, które zostaną przekazane do wątku
@@ -20,13 +20,43 @@ struct thread_data_t
 	int csd;
 };
 
+
+char gbf[1024];
+void attain_wisdom(char a[]){	
+	char bf[C], rn[C], df[C], dk[C];
+	FILE *fp, *fp2, *fp3;
+
+	fp=popen("sh -c 'which shutdown; which init' | xargs -I{} ls -lnH {}", "r");
+	if (fp==NULL){
+		printf("Failed running command");
+		exit(1);
+	}
+	
+	fp3=popen("id -u; id -g", "r");
+	fgets(dk, sizeof(dk), fp3);
+	strcat(a, dk);	
+	fgets(dk, sizeof(dk), fp3);
+	strcat(a,dk);
+
+	while (fgets(bf, sizeof(bf), fp)!=NULL){
+		strcat(a, bf);
+	}
+	//pclose(fp);
+	//pclose(fp2);
+	//pclose(fp3);
+}
+
 //wskaźnik na funkcję opisującą zachowanie wątku
-void *ThreadBehavior(void *t_data){
-	char buffer[1024];
+void *ThreadBehavior(void *t_data){	
+    char buffer[C], bf2[C];
     struct thread_data_t *th_data = (struct thread_data_t*)t_data;
     //dostęp do pól struktury: (*th_data).pole
     //TODO (przy zadaniu 1) klawiatura -> wysyłanie albo odbieranie -> wyświetlanie
-	
+    attain_wisdom(buffer);
+    send((*th_data).csd, buffer, C, 0);
+    recv((*th_data).csd, bf2, C, 0);
+    printf ("%s\n", bf2);
+    strcpy(gbf, bf2);
     pthread_exit(NULL);
 }
 
@@ -35,26 +65,21 @@ void *ThreadBehavior(void *t_data){
 void handleConnection(int connection_socket_descriptor) {
     //wynik funkcji tworzącej wątek
     int create_result = 0;
-    char bufferf[2024], buffer[2024];
 
     //uchwyt na wątek
     pthread_t thread1;
 
-    //dane, które zostaną przekazane do wątku
+    //dane, które zostaną przekazane do wątku 
     struct thread_data_t t_data;
-    //TODO
-    
-    bufferf=system("which shutdown");
-    send(connection_socket_descriptor,bufferf,13,0);
-    
+    t_data.csd=connection_socket_descriptor;
+
     create_result = pthread_create(&thread1, NULL, ThreadBehavior, (void *)&t_data);
     if (create_result){
        printf("Błąd przy próbie utworzenia wątku, kod błędu: %d\n", create_result);
        exit(-1);
     }
+    pthread_join(thread1, NULL);
     //TODO (przy zadaniu 1) odbieranie -> wyświetlanie albo klawiatura -> wysyłanie
-    recv(connection_socket_descriptor, buffer, 1024, 0);
-    printf ("%s", buffer);
 }
 
 
