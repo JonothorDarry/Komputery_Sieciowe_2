@@ -12,6 +12,7 @@
 #include <time.h>
 #include <pthread.h>
 
+//stałe - port, kolejka, rozmiar tablic
 #define SERVER_PORT 1234
 #define QUEUE_SIZE 5
 #define C 2048
@@ -21,6 +22,7 @@ struct thread_data_t{
 	int csd;
 };
 
+//jestem w pozycji p tablicy znaków a: znajduję inta skrytego od tej pozycji do końca inta(endline or space), zwracam go, zmieniając przy okacji pozycję na następnego niezbadanego chara w tablicy.
 int int_from_pos(int *p, char a[]){	
 	int i=*p, id=0;
 	while (1){
@@ -33,9 +35,11 @@ int int_from_pos(int *p, char a[]){
 	return id;
 }
 
+//Dostaję tablicę znaków w formacie uid \n guid \n ls -lnH shutdown \n ls -lnH init \n, gdzie uid, guid to id wykonawcy procesu klienta.
+//Zwracam: 1 - mogę wykonać shutdowna; 2 - mogę wykonać inita; 0 wpp.
 int parse_wisdom(char a[]){
-	int uid=0, gid=0, uid1, gid1, uid2, gid2, i=0, v;
-	char scall[5024], sc1[4024], sc2[4024], outer[5024], tmp[1024], perms1[1024], perms2[1024];
+	int uid=0, gid=0, uid1, gid1, uid2, gid2, i=0;
+	char scall[C], sc1[C], sc2[C], outer[C], tmp[C], perms1[C], perms2[C];
 	FILE *fk, *fk2, *fk3;
 	
 	uid=int_from_pos(&i, a);
@@ -60,7 +64,7 @@ int parse_wisdom(char a[]){
 	uid1=int_from_pos(&i, outer);
 	gid1=int_from_pos(&i, outer);
 	uid2=int_from_pos(&i, outer);
-	gid2=int_from_pos(&i, outer);	
+	gid2=int_from_pos(&i, outer);
 	
 	if (uid==0) return 1;
 	if (uid==uid1 && perms1[0]=='x') return 1;
@@ -74,6 +78,7 @@ int parse_wisdom(char a[]){
 	//printf("%d %d %d %d %d %d %c %c\n", uid, gid, uid1, gid1, uid2, gid2, perms2[0], perms2[1]);
 }
 
+//formulacja polecenia dla klienta
 void grant_wisdom(char dest[], int res, int purp){
 	if (res==0) strcpy(dest, "false\n");
 	else if (res==1&&purp==0) strcpy(dest, "shutdown -P\n");
@@ -100,7 +105,6 @@ void *ThreadBehavior(void *t_data){
 //funkcja obsługująca połączenie z nowym klientem
 void handleConnection(int connection_socket_descriptor) {
     //wynik funkcji tworzącej wątek
-    char buffer[2024], bufferf[2024];
     int create_result = 0;
 
     //uchwyt na wątek
