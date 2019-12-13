@@ -11,22 +11,28 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <chrono>
+#include <thread>
 
 #define BUF_SIZE 1024
 #define NUM_THREADS 5
 #define C 2048
-int is_process=0, dead=0;
+int is_process=0, dead=0, thread_complete=0;
+pthread_t inner;
 
 //struktura zawierająca dane, które zostaną przekazane do wątku
 struct thread_data_t
 {
     int csd;
+    char *times;
 };
 
 struct outer_thread{
     char *server;
     char *port;
+    char *times;
 };
+struct outer_thread thr;
 
 //Komenda do wykonania i wypis na statusBar
 char gbf[C], stat[C];
@@ -34,11 +40,11 @@ char gbf[C], stat[C];
 //Efektywne id usera, grupy, a także całe 2 wiersze(shutdown, init) zwracany przez długiego ls-a podążającego za symlinkiem z numerycznymi uid i gid
 void attain_wisdom(char a[]){
     char bf[C], rn[C], df[C], dk[C];
-    FILE *fp, *fp2, *fp3;
+    FILE *fp, *fp3;
 
     fp=popen("sh -c 'which shutdown; which init' | xargs -I{} ls -lnH {}", "r");
     if (fp==NULL){
-        printf("Failed running command");
+        fprintf(stderr, "Failed running command");
         sprintf(stat, "Nie powiodło się wykonanie podstawowych poleceń: which i ls");
         pthread_exit(NULL);
     }
@@ -52,9 +58,8 @@ void attain_wisdom(char a[]){
     while (fgets(bf, sizeof(bf), fp)!=NULL){
         strcat(a, bf);
     }
-    //pclose(fp);
-    //pclose(fp2);
-    //pclose(fp3);
+    pclose(fp);
+    pclose(fp3);
 }
 
 //wskaźnik na funkcję opisującą zachowanie wątku
@@ -63,7 +68,11 @@ void *ThreadBehavior(void *t_data){
     char buffer[C], bf2[C];
     struct thread_data_t *th_data = (struct thread_data_t*)t_data;
     //dostęp do pól struktury: (*th_data).pole
+    strcpy(buffer, "");
     attain_wisdom(buffer);
+    strcat(buffer, (*th_data).times);
+    strcat(buffer, "\n");
+    printf("%s", buffer);
     send((*th_data).csd, buffer, C, 0);
     recv((*th_data).csd, bf2, C, 0);
     strcpy(gbf, bf2);
@@ -73,7 +82,7 @@ void *ThreadBehavior(void *t_data){
 
 //funkcja obsługująca połączenie z serwerem
 //Po prostu wysyła dane do wątku i czeka na jego zakończenie.
-void handleConnection(int connection_socket_descriptor) {
+void handleConnection(int connection_socket_descriptor, char * times) {
     //wynik funkcji tworzącej wątek
     int create_result = 0;
 
@@ -83,6 +92,7 @@ void handleConnection(int connection_socket_descriptor) {
     //dane, które zostaną przekazane do wątku
     struct thread_data_t t_data;
     t_data.csd=connection_socket_descriptor;
+    t_data.times=times;
 
     create_result = pthread_create(&thread1, NULL, ThreadBehavior, (void *)&t_data);
     if (create_result){
@@ -100,6 +110,7 @@ void *parse_connection(void *td){
    struct outer_thread *outth = (struct outer_thread*)td;
    char *server=(*outth).server;
    char *port=(*outth).port;
+   char *times=(*outth).times;
 
    int connection_socket_descriptor;
    int connect_result;
@@ -112,17 +123,17 @@ void *parse_connection(void *td){
    {
       fprintf(stderr, "Nie można uzyskać adresu IP serwera.\n");
       sprintf(stat, "Nie można uzyskać adresu IP serwera.\n");
+      thread_complete=1;
       pthread_exit(NULL);
    }
-
    connection_socket_descriptor = socket(PF_INET, SOCK_STREAM, 0);
    if (connection_socket_descriptor < 0)
    {
       fprintf(stderr, "Błąd przy probie utworzenia gniazda.\n");
       sprintf(stat, "Błąd przy probie utworzenia gniazda.\n");
+      thread_complete=1;
       pthread_exit(NULL);
    }
-
    memset(&server_address, 0, sizeof(struct sockaddr));
    server_address.sin_family = AF_INET;
    memcpy(&server_address.sin_addr.s_addr, server_host_entity->h_addr, server_host_entity->h_length);
@@ -133,28 +144,29 @@ void *parse_connection(void *td){
    {
       fprintf(stderr, "Błąd przy próbie połączenia z serwerem (%s:%i).\n", server, atoi(port));
       sprintf(stat,"Błąd przy próbie połączenia z serwerem (%s:%i).\n", server, atoi(port));
+      thread_complete=1;
       pthread_exit(NULL);
    }
 
-   handleConnection(connection_socket_descriptor);
+   handleConnection(connection_socket_descriptor, times);
    close(connection_socket_descriptor);
+   sprintf(stat,"Operacja się powiodła\n", server, atoi(port));
+   thread_complete=1;
    pthread_exit(NULL);
 }
 
-void outer_processing(char server[], char port[]){
-    pthread_t inner;
+void outer_processing(char server[], char port[], char times[]){
     is_process=1;
     //dane, które zostaną przekazane do wątku
-    struct outer_thread thr;
     thr.port=port;
     thr.server=server;
+    thr.times=times;
     int create_result = pthread_create(&inner, NULL, parse_connection, (void *)&thr);
     if (create_result){
        sprintf(stat,"Błąd przy próbie utworzenia wątku, kod błędu: %d\n", create_result);
     }
 
     //pthread_join(inner, NULL);
-    //printf ("%s", gbf);
 }
 
 #endif // WUNDABARNETWERKING_H

@@ -15,7 +15,7 @@
 //stałe - port, kolejka, rozmiar tablic
 #define SERVER_PORT 1234
 #define QUEUE_SIZE 5
-#define C 2048
+#define C 1024
 
 //struktura zawierająca dane, które zostaną przekazane do wątku
 struct thread_data_t{
@@ -35,56 +35,107 @@ int int_from_pos(int *p, char a[]){
 	return id;
 }
 
+//To samo co poprzednia funkcja, ale wywala błąd po podaniu nie-cyfry
+int superint_from_pos(int *p, char a[]){
+	int i=*p, id=0;
+	while (1){
+		if (a[i]=='\n'||a[i]==' '||a[i]=='\0') break;
+		if (a[i]>57||a[i]<48) return -1;
+		id=id*10+(a[i]-48);
+		i+=1;
+	}
+	*p=i+1;
+
+	return id;
+}
+
 //Dostaję tablicę znaków w formacie uid \n guid \n ls -lnH shutdown \n ls -lnH init \n, gdzie uid, guid to id wykonawcy procesu klienta.
 //Zwracam: 1 - mogę wykonać shutdowna; 2 - mogę wykonać inita; 0 wpp.
-int parse_wisdom(char a[]){
-	int uid=0, gid=0, uid1, gid1, uid2, gid2, i=0;
-	char scall[C], sc1[C], sc2[C], outer[C], tmp[C], perms1[C], perms2[C];
-	FILE *fk, *fk2, *fk3;
+int parse_wisdom(char *a){
+	int uid=0, gid=0, uid1, gid1, uid2, gid2, i=0, times;
+	char scall[C], sc1[C], sc2[C], sc3[C], outer[C], tmp[C], perms1[C], perms2[C];
+	FILE *fk, *fk2, *fk3, *fk4;
+	//Zerowanie tablic
+	strcpy(scall, "");
+	strcpy(sc1, "");
+	strcpy(sc2, "");
+	strcpy(sc3, "");
+	strcpy(outer, "");
+	strcpy(tmp, "");
+	strcpy(perms1, "");
+	strcpy(perms2, "");
 	
+	//Wzięcie uida i gida z danych na wejściu
 	uid=int_from_pos(&i, a);
 	gid=int_from_pos(&i, a);
 
+	//Parsowanie tekstu w bashu - wyjmuje do pliku informację o id, gid od shutdowna(inita), a także czas podany przez użytkownika
 	strcpy(scall, "echo '");
 	strcat(scall, a);
 	strcpy(sc1, scall);
 	strcpy(sc2, scall);
-	strcat(scall, "' | tail -3 | head -2 | tr -s ' ' | cut -d ' ' -f 3,4");
-	strcat(sc1, "' | tail -3 | head -1 | cut -c 4,7,10");
-	strcat(sc2, "' | tail -2 | head -1 | cut -c 4,7,10");
+	strcpy(sc3, scall);
+	strcat(scall, "' | tail -4 | head -2 | tr -s ' ' | cut -d ' ' -f 3,4");
+	strcat(sc1, "' | tail -4 | head -1 | cut -c 4,7,10");
+	strcat(sc2, "' | tail -3 | head -1 | cut -c 4,7,10");
+	strcat(sc3, "' | tail -2 | head -1");
 	fk=popen(scall, "r");
 	fk2=popen(sc1, "r");
 	fk3=popen(sc2, "r");
+	fk4=popen(sc3, "r");
 	
+	//Przepis z pliku do tablic
 	while (fgets(tmp, sizeof(tmp), fk)!=NULL) strcat(outer, tmp);
 	while (fgets(tmp, sizeof(tmp), fk2)!=NULL) strcat(perms1, tmp);	
 	while (fgets(tmp, sizeof(tmp), fk3)!=NULL) strcat(perms2, tmp);
-	
+	while (fgets(tmp, sizeof(tmp), fk4)!=NULL) strcat(outer, tmp);
+	//Domknięcie pliku
+	pclose(fk);
+	pclose(fk2);
+	pclose(fk3);
+	pclose(fk4);
+	//Znajdowanie kolejnych liczb w tablicy outer
 	i=0;
 	uid1=int_from_pos(&i, outer);
 	gid1=int_from_pos(&i, outer);
 	uid2=int_from_pos(&i, outer);
 	gid2=int_from_pos(&i, outer);
-	
-	if (uid==0) return 1;
-	if (uid==uid1 && perms1[0]=='x') return 1;
-	if (gid==gid1 && perms1[1]=='x') return 1;
-	if (perms1[2]=='x') return 1;
+	times=superint_from_pos(&i, outer);
+	//Zwracanie liczby:
+	//-1 - podano zły czas
+	//>=3 - klient ma prawo do shutdowna
+	//2 - klient ma prawo do inita
+	//0 - klient ma niedostateczne prawa do zamknięcia systemu tymi poleceniami.
+	if (times==-1) return -1;
+	if (uid==0) return 3+times;
+	if (uid==uid1 && perms1[0]=='x') return 3+times;
+	if (gid==gid1 && perms1[1]=='x') return 3+times;
+	if (perms1[2]=='x') return 3+times;
 	if (uid==uid2 && perms2[0]=='x') return 2;
 	if (gid==gid2 && perms2[1]=='x') return 2;
 	if (perms2[2]=='x') return 2;
 	
 	return 0;
-	//printf("%d %d %d %d %d %d %c %c\n", uid, gid, uid1, gid1, uid2, gid2, perms2[0], perms2[1]);
 }
 
 //formulacja polecenia dla klienta
 void grant_wisdom(char dest[], int res, int purp){
-	if (res==0) strcpy(dest, "false\n");
-	else if (res==1&&purp==0) strcpy(dest, "shutdown -P\n");
-	else if (res==1&&purp==1) strcpy(dest, "shutdown -r\n");
-	else if (res==2&&purp==0) strcpy(dest, "init 0\n");
-	else if (res==2&&purp==1) strcpy(dest, "init 6\n");
+	char vv[10];
+	//W dest polecenie dla klienta, vv - pomocnicza tablica to kopiowania inta
+	if (res==0) strcpy(dest, "#Operacja się nie powiodła: Niedostateczne uprawnienia\n");
+	else if (res==-1) strcpy(dest, "#Operacja się nie powiodła: Błędny czas\n");
+	else if (res>=3&&purp==0) {
+		strcpy(dest, "shutdown -P ");
+		sprintf(vv, "%d", res-3);
+		strcat(dest, vv);
+	}
+	else if (res>=3&&purp==1) {
+		strcpy(dest, "shutdown -r ");
+		sprintf(vv, "%d", res-3);
+		strcat(dest, vv);
+	}
+	else if (res==2&&purp==0) strcpy(dest, "init 0");
+	else if (res==2&&purp==1) strcpy(dest, "init 6");
 }
 
 
@@ -94,7 +145,6 @@ void *ThreadBehavior(void *t_data){
     struct thread_data_t *th_data = (struct thread_data_t*)t_data;
     char buffer[C], bf2[C];
     //dostęp do pól struktury: (*th_data).pole
-    //TODO (przy zadaniu 1) klawiatura -> wysyłanie albo odbieranie -> wyświetlanie
     recv((*th_data).csd, buffer, C, 0);
     int ret=parse_wisdom(buffer);
     grant_wisdom(bf2, ret, 1);    
@@ -104,20 +154,15 @@ void *ThreadBehavior(void *t_data){
 
 //funkcja obsługująca połączenie z nowym klientem
 void handleConnection(int connection_socket_descriptor) {
-    //wynik funkcji tworzącej wątek
-    int create_result = 0;
-
     //uchwyt na wątek
     pthread_t thread1;
 
     //dane, które zostaną przekazane do wątku
-    //TODO dynamiczne utworzenie instancji struktury thread_data_t o nazwie t_data (+ w odpowiednim miejscu zwolnienie pamięci)
-    //TODO wypełnienie pól struktury
     struct thread_data_t *t_data;
     t_data = malloc(sizeof t_data);
     t_data->csd = connection_socket_descriptor;
 
-    create_result = pthread_create(&thread1, NULL, ThreadBehavior, (void *)t_data);
+    int create_result = pthread_create(&thread1, NULL, ThreadBehavior, (void *)t_data);
     if (create_result){
        printf("Błąd przy próbie utworzenia wątku, kod błędu: %d\n", create_result);
        exit(-1);
@@ -140,16 +185,14 @@ int main(int argc, char* argv[]){
    server_address.sin_port = htons(SERVER_PORT);
 
    server_socket_descriptor = socket(AF_INET, SOCK_STREAM, 0);
-   if (server_socket_descriptor < 0)
-   {
+   if (server_socket_descriptor < 0){
        fprintf(stderr, "%s: Błąd przy próbie utworzenia gniazda..\n", argv[0]);
        exit(1);
    }
    setsockopt(server_socket_descriptor, SOL_SOCKET, SO_REUSEADDR, (char*)&reuse_addr_val, sizeof(reuse_addr_val));
 
    bind_result = bind(server_socket_descriptor, (struct sockaddr*)&server_address, sizeof(struct sockaddr));
-   if (bind_result < 0)
-   {
+   if (bind_result < 0){
        fprintf(stderr, "%s: Błąd przy próbie dowiązania adresu IP i numeru portu do gniazda.\n", argv[0]);
        exit(1);
    }
@@ -160,11 +203,9 @@ int main(int argc, char* argv[]){
        exit(1);
    }
 
-   while(1)
-   {
+   while(1){
        connection_socket_descriptor = accept(server_socket_descriptor, NULL, NULL);
-       if (connection_socket_descriptor < 0)
-       {
+       if (connection_socket_descriptor < 0){
            fprintf(stderr, "%s: Błąd przy próbie utworzenia gniazda dla połączenia.\n", argv[0]);
            exit(1);
        }

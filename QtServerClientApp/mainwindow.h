@@ -16,6 +16,7 @@ class MainWindow : public QMainWindow
     private:
         QLineEdit * tline;
         QLineEdit * tline2;
+        QLineEdit * timeline;
         QPushButton * shut;
         QPushButton * res;
 
