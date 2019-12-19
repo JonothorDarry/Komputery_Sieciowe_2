@@ -21,16 +21,11 @@ int is_process=0, dead=0, thread_complete=0;
 pthread_t inner;
 
 //struktura zawierająca dane, które zostaną przekazane do wątku
-struct thread_data_t
-{
-    int csd;
-    char *times;
-};
-
 struct outer_thread{
     char *server;
     char *port;
     char *times;
+    int op;
 };
 struct outer_thread thr;
 
@@ -39,13 +34,14 @@ char gbf[C], stat[C];
 //Funkcja uzyskująca informację o uprawnieniach użytkownika i dostępie do funkcji init, shutdown; zwraca w tablicy a:
 //Efektywne id usera, grupy, a także całe 2 wiersze(shutdown, init) zwracany przez długiego ls-a podążającego za symlinkiem z numerycznymi uid i gid
 void attain_wisdom(char a[]){
-    char bf[C], rn[C], df[C], dk[C];
+    char bf[C], dk[C];
     FILE *fp, *fp3;
 
     fp=popen("sh -c 'which shutdown; which init' | xargs -I{} ls -lnH {}", "r");
     if (fp==NULL){
         fprintf(stderr, "Failed running command");
         sprintf(stat, "Nie powiodło się wykonanie podstawowych poleceń: which i ls");
+        thread_complete=1;
         pthread_exit(NULL);
     }
 
@@ -62,62 +58,39 @@ void attain_wisdom(char a[]){
     pclose(fp3);
 }
 
-//wskaźnik na funkcję opisującą zachowanie wątku
-//Co robi wątek? zdobywa wiedzę, wysyła ją serwerowi, odbiera od serwera dane i wydaje zadaną komendę do tablicy globalnej, żeby główny wątek ją przetworzył
-void *ThreadBehavior(void *t_data){
+//Zajmuje się połączeniem z serverem, a także zdobyciem informacji o własnych uprawnieniach
+void handleConnection(int connection_socket_descriptor, char * times, int wal) {
     char buffer[C], bf2[C];
-    struct thread_data_t *th_data = (struct thread_data_t*)t_data;
-    //dostęp do pól struktury: (*th_data).pole
     strcpy(buffer, "");
+    strcpy(bf2, "");
+    sprintf(buffer, "%d\n", wal);
     attain_wisdom(buffer);
-    strcat(buffer, (*th_data).times);
+    strcat(buffer, times);
     strcat(buffer, "\n");
     printf("%s", buffer);
-    send((*th_data).csd, buffer, C, 0);
-    recv((*th_data).csd, bf2, C, 0);
+    send(connection_socket_descriptor, buffer, C, 0);
+    recv(connection_socket_descriptor, bf2, C, 0);
     strcpy(gbf, bf2);
-    pthread_exit(NULL);
-}
-
-
-//funkcja obsługująca połączenie z serwerem
-//Po prostu wysyła dane do wątku i czeka na jego zakończenie.
-void handleConnection(int connection_socket_descriptor, char * times) {
-    //wynik funkcji tworzącej wątek
-    int create_result = 0;
-
-    //uchwyt na wątek
-    pthread_t thread1;
-
-    //dane, które zostaną przekazane do wątku
-    struct thread_data_t t_data;
-    t_data.csd=connection_socket_descriptor;
-    t_data.times=times;
-
-    create_result = pthread_create(&thread1, NULL, ThreadBehavior, (void *)&t_data);
-    if (create_result){
-       fprintf(stderr, "Błąd przy próbie utworzenia wątku, kod błędu: %d\n", create_result);
-       sprintf(stat, "Błąd przy próbie utworzenia wątku, kod błędu: %d\n", create_result);
-       pthread_exit(NULL);
-    }
-
-    pthread_join(thread1, NULL);
-    //TODO (przy zadaniu 1) odbieranie -> wyświetlanie albo klawiatura -> wysyłanie
 }
 
 //Wszystkie aspekty związane z połączeniem i jego nawiązaniem, rozwiązaniem
 void *parse_connection(void *td){
+    //Przechowywanie zmiennych wrzuconych do wątku
    struct outer_thread *outth = (struct outer_thread*)td;
-   char *server=(*outth).server;
-   char *port=(*outth).port;
-   char *times=(*outth).times;
+   char server[C];
+   char port[C];
+   char times[C];
+   int v=(*outth).op;
+   strcpy(server, (*outth).server);
+   strcpy(port, (*outth).port);
+   strcpy(times, (*outth).times);
 
    int connection_socket_descriptor;
    int connect_result;
    struct sockaddr_in server_address;
    struct hostent* server_host_entity;
 
-
+    //IP4 po nazwie hosta
    server_host_entity = gethostbyname(server);
    if (! server_host_entity)
    {
@@ -126,6 +99,7 @@ void *parse_connection(void *td){
       thread_complete=1;
       pthread_exit(NULL);
    }
+   //Tworzenie socketa
    connection_socket_descriptor = socket(PF_INET, SOCK_STREAM, 0);
    if (connection_socket_descriptor < 0)
    {
@@ -139,6 +113,7 @@ void *parse_connection(void *td){
    memcpy(&server_address.sin_addr.s_addr, server_host_entity->h_addr, server_host_entity->h_length);
    server_address.sin_port = htons(atoi(port));
 
+   //Wiązanie deskryptora z serwerem
    connect_result = connect(connection_socket_descriptor, (struct sockaddr*)&server_address, sizeof(struct sockaddr));
    if (connect_result < 0)
    {
@@ -148,19 +123,23 @@ void *parse_connection(void *td){
       pthread_exit(NULL);
    }
 
-   handleConnection(connection_socket_descriptor, times);
+   //funkcja biorąca na siebie połączenie - nie osobny wątek
+   handleConnection(connection_socket_descriptor, times, v);
+   //Zamknięcie deskryptora
    close(connection_socket_descriptor);
-   sprintf(stat,"Operacja się powiodła\n", server, atoi(port));
+   sprintf(stat,"!Serwer wysłał odpowiedź!\n");
    thread_complete=1;
    pthread_exit(NULL);
 }
 
-void outer_processing(char server[], char port[], char times[]){
+//Co się w ogóle stanie - najbardziej zewnętrzna funkcja robiąca passa do wątku
+void outer_processing(char server[], char port[], char times[], int w){
     is_process=1;
     //dane, które zostaną przekazane do wątku
     thr.port=port;
     thr.server=server;
     thr.times=times;
+    thr.op=w;
     int create_result = pthread_create(&inner, NULL, parse_connection, (void *)&thr);
     if (create_result){
        sprintf(stat,"Błąd przy próbie utworzenia wątku, kod błędu: %d\n", create_result);

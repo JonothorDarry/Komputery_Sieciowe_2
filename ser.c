@@ -22,6 +22,11 @@ struct thread_data_t{
 	int csd;
 };
 
+struct wisdom{
+	int res;
+	int sores;
+};
+
 //jestem w pozycji p tablicy znaków a: znajduję inta skrytego od tej pozycji do końca inta(endline or space), zwracam go, zmieniając przy okacji pozycję na następnego niezbadanego chara w tablicy.
 int int_from_pos(int *p, char a[]){	
 	int i=*p, id=0;
@@ -51,10 +56,12 @@ int superint_from_pos(int *p, char a[]){
 
 //Dostaję tablicę znaków w formacie uid \n guid \n ls -lnH shutdown \n ls -lnH init \n, gdzie uid, guid to id wykonawcy procesu klienta.
 //Zwracam: 1 - mogę wykonać shutdowna; 2 - mogę wykonać inita; 0 wpp.
-int parse_wisdom(char *a){
+struct wisdom parse_wisdom(char *a){
 	int uid=0, gid=0, uid1, gid1, uid2, gid2, i=0, times;
 	char scall[C], sc1[C], sc2[C], sc3[C], outer[C], tmp[C], perms1[C], perms2[C];
 	FILE *fk, *fk2, *fk3, *fk4;
+	struct wisdom xx;
+
 	//Zerowanie tablic
 	strcpy(scall, "");
 	strcpy(sc1, "");
@@ -66,6 +73,7 @@ int parse_wisdom(char *a){
 	strcpy(perms2, "");
 	
 	//Wzięcie uida i gida z danych na wejściu
+	xx.sores=int_from_pos(&i, a);
 	uid=int_from_pos(&i, a);
 	gid=int_from_pos(&i, a);
 
@@ -90,10 +98,7 @@ int parse_wisdom(char *a){
 	while (fgets(tmp, sizeof(tmp), fk3)!=NULL) strcat(perms2, tmp);
 	while (fgets(tmp, sizeof(tmp), fk4)!=NULL) strcat(outer, tmp);
 	//Domknięcie pliku
-	pclose(fk);
-	pclose(fk2);
-	pclose(fk3);
-	pclose(fk4);
+	pclose(fk), pclose(fk2), pclose(fk3), pclose(fk4);
 	//Znajdowanie kolejnych liczb w tablicy outer
 	i=0;
 	uid1=int_from_pos(&i, outer);
@@ -106,23 +111,23 @@ int parse_wisdom(char *a){
 	//>=3 - klient ma prawo do shutdowna
 	//2 - klient ma prawo do inita
 	//0 - klient ma niedostateczne prawa do zamknięcia systemu tymi poleceniami.
-	if (times==-1) return -1;
-	if (uid==0) return 3+times;
-	if (uid==uid1 && perms1[0]=='x') return 3+times;
-	if (gid==gid1 && perms1[1]=='x') return 3+times;
-	if (perms1[2]=='x') return 3+times;
-	if (uid==uid2 && perms2[0]=='x') return 2;
-	if (gid==gid2 && perms2[1]=='x') return 2;
-	if (perms2[2]=='x') return 2;
+	if (times==-1) 			 	 		  xx.res=-1;
+	else if (uid==0) 		 	 		  xx.res=3+times;
+	else if (uid==uid1 && (perms1[0]=='x' || perms1[0]=='s')) xx.res=3+times;
+	else if (gid==gid1 && (perms1[1]=='x' || perms1[1]=='s')) xx.res=3+times;
+	else if (perms1[2]=='x' || perms1[2]=='t') 		  xx.res=3+times;
+	else if (uid==uid2 && (perms2[0]=='x' || perms2[0]=='s')) xx.res=2;
+	else if (gid==gid2 && (perms2[1]=='x' || perms2[1]=='s')) xx.res=2;
+	else if (perms2[2]=='x' || perms2[2]=='t')	 	  xx.res=2;
 	
-	return 0;
+	return xx;
 }
 
 //formulacja polecenia dla klienta
 void grant_wisdom(char dest[], int res, int purp){
 	char vv[10];
 	//W dest polecenie dla klienta, vv - pomocnicza tablica to kopiowania inta
-	if (res==0) strcpy(dest, "#Operacja się nie powiodła: Niedostateczne uprawnienia\n");
+	if (res==0||res==2) strcpy(dest, "#Operacja się nie powiodła: Niedostateczne uprawnienia\n");
 	else if (res==-1) strcpy(dest, "#Operacja się nie powiodła: Błędny czas\n");
 	else if (res>=3&&purp==0) {
 		strcpy(dest, "shutdown -P ");
@@ -134,8 +139,8 @@ void grant_wisdom(char dest[], int res, int purp){
 		sprintf(vv, "%d", res-3);
 		strcat(dest, vv);
 	}
-	else if (res==2&&purp==0) strcpy(dest, "init 0");
-	else if (res==2&&purp==1) strcpy(dest, "init 6");
+	//else if (res==2&&purp==0) strcpy(dest, "init 0");
+	//else if (res==2&&purp==1) strcpy(dest, "init 6");
 }
 
 
@@ -146,8 +151,9 @@ void *ThreadBehavior(void *t_data){
     char buffer[C], bf2[C];
     //dostęp do pól struktury: (*th_data).pole
     recv((*th_data).csd, buffer, C, 0);
-    int ret=parse_wisdom(buffer);
-    grant_wisdom(bf2, ret, 1);    
+    struct wisdom ret=parse_wisdom(buffer);
+    printf("%d %d\n", ret.res, ret.sores);
+    grant_wisdom(bf2, ret.res, ret.sores);
     send((*th_data).csd, bf2, C, 0);
     pthread_exit(NULL);
 }
