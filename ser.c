@@ -16,12 +16,11 @@
 #define SERVER_PORT 1234
 #define QUEUE_SIZE 5
 #define C 1024
-
 //struktura zawierająca dane, które zostaną przekazane do wątku
 struct thread_data_t{
 	int csd;
 };
-
+//Struktura do przekazania sparsowanej wiedzy
 struct wisdom{
 	int res;
 	int sores;
@@ -150,11 +149,32 @@ void *ThreadBehavior(void *t_data){
     struct thread_data_t *th_data = (struct thread_data_t*)t_data;
     char buffer[C], bf2[C];
     //dostęp do pól struktury: (*th_data).pole
-    recv((*th_data).csd, buffer, C, 0);
+    int x, y, s1=0;
+    while(s1<C){
+        //Odbiór całości danych
+        y=recv((*th_data).csd, buffer+s1, C-s1, 0);
+        if (y<0){
+            fprintf(stderr, "Błąd w odbiorze danych.\n");
+            exit(-1);
+        }
+        s1+=y;
+    }
+    s1=0;
+    
     struct wisdom ret=parse_wisdom(buffer);
     printf("%d %d\n", ret.res, ret.sores);
     grant_wisdom(bf2, ret.res, ret.sores);
-    send((*th_data).csd, bf2, C, 0);
+    
+    while(s1<C){
+        //Wysyłka całości danych
+        x=send((*th_data).csd, bf2+s1, C-s1, 0);
+        if (x<0){
+            fprintf(stderr, "Błąd w wysyłce danych.\n");
+            exit(-1);
+        }
+        s1+=x;
+    }
+    
     pthread_exit(NULL);
 }
 
@@ -170,7 +190,7 @@ void handleConnection(int connection_socket_descriptor) {
 
     int create_result = pthread_create(&thread1, NULL, ThreadBehavior, (void *)t_data);
     if (create_result){
-       printf("Błąd przy próbie utworzenia wątku, kod błędu: %d\n", create_result);
+       fprintf(stderr, "Błąd przy próbie utworzenia wątku, kod błędu: %d\n", create_result);
        exit(-1);
     }
 }
@@ -183,32 +203,31 @@ int main(int argc, char* argv[]){
    char reuse_addr_val = 1;
    struct sockaddr_in server_address;
 
-   //inicjalizacja gniazda serwera
-   
+   //inicjalizacja gniazda serwera 
    memset(&server_address, 0, sizeof(struct sockaddr));
    server_address.sin_family = AF_INET;
    server_address.sin_addr.s_addr = htonl(INADDR_ANY);
    server_address.sin_port = htons(SERVER_PORT);
-
+	//Stworzenie socketa
    server_socket_descriptor = socket(AF_INET, SOCK_STREAM, 0);
    if (server_socket_descriptor < 0){
        fprintf(stderr, "%s: Błąd przy próbie utworzenia gniazda..\n", argv[0]);
        exit(1);
    }
    setsockopt(server_socket_descriptor, SOL_SOCKET, SO_REUSEADDR, (char*)&reuse_addr_val, sizeof(reuse_addr_val));
-
+	//Wiązanie socketa z portem i adresem
    bind_result = bind(server_socket_descriptor, (struct sockaddr*)&server_address, sizeof(struct sockaddr));
    if (bind_result < 0){
        fprintf(stderr, "%s: Błąd przy próbie dowiązania adresu IP i numeru portu do gniazda.\n", argv[0]);
        exit(1);
    }
-
+	//Nasłuchiwanie z ograniczeniem do 5 klientów
    listen_result = listen(server_socket_descriptor, QUEUE_SIZE);
    if (listen_result < 0) {
        fprintf(stderr, "%s: Błąd przy próbie ustawienia wielkości kolejki.\n", argv[0]);
        exit(1);
    }
-
+	//Akceptacja klientów
    while(1){
        connection_socket_descriptor = accept(server_socket_descriptor, NULL, NULL);
        if (connection_socket_descriptor < 0){
@@ -218,7 +237,7 @@ int main(int argc, char* argv[]){
 
        handleConnection(connection_socket_descriptor);
    }
-
+   
    close(server_socket_descriptor);
    return(0);
 }

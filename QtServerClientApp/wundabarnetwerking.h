@@ -14,11 +14,13 @@
 #include <chrono>
 #include <thread>
 
-#define BUF_SIZE 1024
-#define NUM_THREADS 5
-#define C 2048
-int is_process=0, dead=0, thread_complete=0;
+//Rozmiar bufora, Czy zaczął się proces, czy wątek skończył się
+#define C 1024
+int is_process=0, thread_complete=0;
+//Wątek - komunikacja z serwerem, mutexy na nowego klienta i zapis danych do wątku
 pthread_t inner;
+pthread_mutex_t newcli = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t data_written = PTHREAD_MUTEX_INITIALIZER;
 
 //struktura zawierająca dane, które zostaną przekazane do wątku
 struct outer_thread{
@@ -36,46 +38,74 @@ char gbf[C], stat[C];
 void attain_wisdom(char a[]){
     char bf[C], dk[C];
     FILE *fp, *fp3;
-
+    //Znalezienie permisji
     fp=popen("sh -c 'which shutdown; which init' | xargs -I{} ls -lnH {}", "r");
     if (fp==NULL){
-        fprintf(stderr, "Failed running command");
+        fprintf(stderr, "Nie powiodło się wykonanie podstawowych poleceń: which i ls");
         sprintf(stat, "Nie powiodło się wykonanie podstawowych poleceń: which i ls");
         thread_complete=1;
         pthread_exit(NULL);
     }
-
+    //id usera i grupy, w której jest user - dodane do tablicy na output
     fp3=popen("id -u; id -g", "r");
     fgets(dk, sizeof(dk), fp3);
     strcat(a, dk);
     fgets(dk, sizeof(dk), fp3);
     strcat(a,dk);
 
+    //Dodanie do stringa na wyjście permisji
     while (fgets(bf, sizeof(bf), fp)!=NULL){
         strcat(a, bf);
     }
-    pclose(fp);
-    pclose(fp3);
+    //Zamknięcie plików
+    pclose(fp); pclose(fp3);
 }
+
 
 //Zajmuje się połączeniem z serverem, a także zdobyciem informacji o własnych uprawnieniach
 void handleConnection(int connection_socket_descriptor, char * times, int wal) {
     char buffer[C], bf2[C];
+    //Czystka buforów
     strcpy(buffer, "");
     strcpy(bf2, "");
+    //Zapisanie buforów podanymi przez funkcję i znalezionymi w systemie wartościami
     sprintf(buffer, "%d\n", wal);
     attain_wisdom(buffer);
     strcat(buffer, times);
     strcat(buffer, "\n");
     printf("%s", buffer);
-    send(connection_socket_descriptor, buffer, C, 0);
-    recv(connection_socket_descriptor, bf2, C, 0);
+    //Komunikacja z serverem
+    int s1=0, x, y;
+    while(s1<C){
+        //Wysyłka całości danych
+        x=send(connection_socket_descriptor, buffer+s1, C-s1, 0);
+        if (x<0){
+            fprintf(stderr, "Błąd w wysyłce danych.\n");
+            sprintf(stat, "Błąd w wysyłce danych.\n");
+            thread_complete=1;
+            pthread_exit(NULL);
+        }
+        s1+=x;
+    }
+    s1=0;
+    while(s1<C){
+        //Odbiór całości danych
+        y=recv(connection_socket_descriptor, bf2+s1, C-s1, 0);
+        if (y<0){
+            fprintf(stderr, "Błąd w odbiorze danych.\n");
+            sprintf(stat, "Błąd w odbiorze danych.\n");
+            thread_complete=1;
+            pthread_exit(NULL);
+        }
+        s1+=y;
+    }
+    //String, który wykona główna funkcja, jeśli nie zajdzie error
     strcpy(gbf, bf2);
 }
 
 //Wszystkie aspekty związane z połączeniem i jego nawiązaniem, rozwiązaniem
 void *parse_connection(void *td){
-    //Przechowywanie zmiennych wrzuconych do wątku
+   //Przechowywanie zmiennych wrzuconych do wątku
    struct outer_thread *outth = (struct outer_thread*)td;
    char server[C];
    char port[C];
@@ -84,13 +114,13 @@ void *parse_connection(void *td){
    strcpy(server, (*outth).server);
    strcpy(port, (*outth).port);
    strcpy(times, (*outth).times);
-
+   pthread_mutex_unlock(&data_written);
    int connection_socket_descriptor;
    int connect_result;
    struct sockaddr_in server_address;
    struct hostent* server_host_entity;
 
-    //IP4 po nazwie hosta
+    //adres IP4 znajdowany po nazwie hosta
    server_host_entity = gethostbyname(server);
    if (! server_host_entity)
    {
@@ -134,17 +164,20 @@ void *parse_connection(void *td){
 
 //Co się w ogóle stanie - najbardziej zewnętrzna funkcja robiąca passa do wątku
 void outer_processing(char server[], char port[], char times[], int w){
+    pthread_mutex_lock(&newcli);
+    pthread_mutex_unlock(&data_written);
     is_process=1;
     //dane, które zostaną przekazane do wątku
     thr.port=port;
     thr.server=server;
     thr.times=times;
     thr.op=w;
+    pthread_mutex_lock(&data_written);
     int create_result = pthread_create(&inner, NULL, parse_connection, (void *)&thr);
     if (create_result){
        sprintf(stat,"Błąd przy próbie utworzenia wątku, kod błędu: %d\n", create_result);
     }
-
+    pthread_mutex_lock(&data_written);
     //pthread_join(inner, NULL);
 }
 

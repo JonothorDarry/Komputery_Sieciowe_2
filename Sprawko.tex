@@ -11,7 +11,8 @@
 
 \begin{document}
 \title{Sprawozdanie z zadania na SK2\\
-\large Zdalne wyłączanie komputerów}
+\large Zdalne wyłączanie komputerów\\
+\large Sebastian Michoń}
 \date{\vspace{-10ex}}
 \maketitle
 
@@ -48,6 +49,24 @@
 \begin{enumerate}
 	\item W aplikacji okienkowej można podać serwer i port, z którym chcę się skomunikować, ponadto czas, za jaki chcę zrestartować/wyłączyć komputer
 	\item Po kliknięciu na przyciski reset/shutdown uruchamia się trigger odpowiadający za przedsięwzięcie odpowiednich operacji po stronie klienta - zamraża on przyciski shutdown i reset, przechodząc do funkcji outer\_processing. Przycisk Cancel zamyka okno i związane z nim operacje, ale 
+	\item funkcja outer\_processing wsadza dane od gui do struktury i wrzuca je do nowego wątku wykonującego funckję parse\_connection, wychodząc z funkcji bez pthread\_joina - dzięki temu aplikacja się nie wiesza.
+	\item funkcja parse\_connection tworzy socketa, a następnie łączy się z podanym przez użytkownika adresem i portem. Dalej wywołuję funkcję zarządzającą połączeniem handleConnection i zamykam socketa.
+	\item Funkcja handleConnection zdobywa informacje w określonym formacie od funkcji attain\_wisdom o użytkowniku i jego prawach, wysyła je do serwera i otrzymuje odpowiesź - polecenie do wykonania na komputerze, na którym uruchomiony jest klient.
+	\item Timer odczytuje co 1 sekundę informację o tym, czy thread się zakończył - jeśli tak, to wykonywane jest polecenie wysłane przez serwer, odblokowywane są przyciski.
+\end{enumerate}
+
+\section{Uruchomienie}
+\begin{enumerate}
+	\item Uruchomienie serwera:\\
+		cd ...(miejsce, gdzie zaszyty jest projekt)\\
+		gcc ser.c -o ser -Wall -l pthread\\
+		./ser
+	\item Uruchomienie klienta:\\
+		cd .../QtServerClientApp (w miejscu, gdzie jest projekt)\\
+		qmake\\
+		make\\
+		./QtServerClientApp
+		
 \end{enumerate}
 
 \end{document}

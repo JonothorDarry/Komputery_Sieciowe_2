@@ -69,6 +69,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent){
     connect(timer, &QTimer::timeout, this, [=](){
         //Jeśli wątek interakcji z serverem się skończył, a był, to:
         if (is_process==1 && thread_complete==1){
+            int sysc=0;
             //tworzę komunikat statusu, robię jego joina
             if (stat[0]=='!') strcat(stat, " : "), strcat(stat, gbf);
             statusBar()->showMessage(stat);
@@ -77,7 +78,15 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent){
 
             thread_complete=0;
             is_process=0;
-            //system(gbf);
+            //Wykonanie Operacji
+            if (stat[0]=='!'){
+                //sysc=system(gbf);
+                if (sysc!=0){
+                    fprintf(stderr, "Nie powiodło się wykonanie operacji na komputerze klienckim");
+                }
+            }
+            //Nowy klient już może wchodzić
+            pthread_mutex_unlock(&newcli);
             shut->setDisabled(false);
             res->setDisabled(false);
         }
