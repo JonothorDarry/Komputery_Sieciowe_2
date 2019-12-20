@@ -1,0 +1,53 @@
+\documentclass[12pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[svgnames]{xcolor}
+\usepackage[a4paper,bindingoffset=0.2in,%
+            left=0.5in,right=0.5in,top=0.5in,bottom=1in,%
+            footskip=.25in]{geometry}
+\pagenumbering{gobble}
+\usepackage[colorlinks=true, linkcolor=Black, urlcolor=Blue]{hyperref}
+
+\begin{document}
+\title{Sprawozdanie z zadania na SK2\\
+\large Zdalne wyłączanie komputerów}
+\date{\vspace{-10ex}}
+\maketitle
+
+
+\section{Protokół komunikacji}
+\begin {enumerate}
+	\item Klient porozumiewa się z serwerem z użyciem protokołu TCP - zależy mi na niezawodności przesłania uprawnień, 
+	a także przesłania na sprzęt klienta odpowiedniej komendy wyłączającej sprzęt
+	\item Klient po zainicjowaniu połączenia przesyła nasłuchującemu serwerowi - a ściślej wątkowi, który z tego serwera wychodzi bufor tekstu w następującym formacie:\\
+	komenda\\
+	uid\\
+	gid\\
+	wynik ls -lnH \$(which shutdown)\\
+	wynik ls -lnH \$(which init)\\
+	czas\\
+	Gdzie:\\
+	komenda - jedna cyfra - 0, jeśli shutdown, 1, jeśli reset\\
+	uid, gid - user id, group id, którymi posługuje się aplikacja klienta\\
+	2 kolejne linie są użyteczne do sprawdzenia uprawnień komend, którymi mogę wyłączyć system\\
+	czas - za ile minut ten komputer ma zostać wyłączony? (w minutach)
+	\item Serwer po parsingu tych danych wysyła klientowi bufor tekstu, w którym znajduje się komenda, którą klient ma wykonać na systemie - w szczególności komentarz, jeśli klient jest pozbawiony odpowiednich praw.
+\end {enumerate}
+
+\section{Struktura serwera}
+\begin {enumerate}
+	\item Serwer tworzy socketa, manipuluje jego opcjami(setsockopt), wiąże tego socketa z portem 1234 i adresem, następnie zaczyna nasłuchiwać na tym sockecie do 5 połączeń i je akceptować - nawiązane połączenia obsługuje funkcja handleConnection.
+	\item Funkcja handleConnection przekazuje nowemu wątku wykonującemu funkcję ThreadBehavior deskryptor, z którym może się komunikować i wraca do maina.
+	\item Funkcja ThreadBehavior odbiera od klienta bufor tekstu, wysyła go do funkcji parsującej parse\_wisdom, jej wynik (zamknięty w strukturze wisdom) jest przekazywany do funkcji grant\_wisdom tworzącej stringa przesyłanego do klienta; następnie wychodzę z wątku.
+	\item Funkcja parse\_wisdom operując na danych przesyłanych przez klienta zwraca informację, do jakich komend ma on uprawnienia a także jaki jest czas, za jaki komputer ma zostać wyłączony/zresetowany.
+	\item Funkcja grant\_wisdom operując na wyniku funkcji parsującej zwraca komendę, która zostanie wysłana do klienta.
+
+\end {enumerate}
+\section{Struktura klienta}
+\begin{enumerate}
+	\item W aplikacji okienkowej można podać serwer i port, z którym chcę się skomunikować, ponadto czas, za jaki chcę zrestartować/wyłączyć komputer
+	\item Po kliknięciu na przyciski reset/shutdown uruchamia się trigger odpowiadający za przedsięwzięcie odpowiednich operacji po stronie klienta - zamraża on przyciski shutdown i reset, przechodząc do funkcji outer\_processing. Przycisk Cancel zamyka okno i związane z nim operacje, ale 
+\end{enumerate}
+
+\end{document}
