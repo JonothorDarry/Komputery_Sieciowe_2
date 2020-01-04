@@ -14,9 +14,15 @@
 
 //stałe - port, kolejka, rozmiar tablic
 #define SERVER_PORT 1234
-#define QUEUE_SIZE 5
+#define QUEUE_SIZE 20 
 #define C 1024
 //struktura zawierająca dane, które zostaną przekazane do wątku
+
+int dead[QUEUE_SIZE];
+char valid[QUEUE_SIZE][1024], prep_command[QUEUE_SIZE][1024];
+pthread_mutex_t mx=PTHREAD_MUTEX_INITIALIZER, arr[QUEUE_SIZE] = {[0 ... QUEUE_SIZE-1] = PTHREAD_MUTEX_INITIALIZER};
+pthread_cond_t nv[QUEUE_SIZE]={[0 ... QUEUE_SIZE-1]=PTHREAD_COND_INITIALIZER};
+
 struct thread_data_t{
 	int csd;
 };
@@ -54,73 +60,6 @@ int superint_from_pos(int *p, char a[]){
 }
 
 //Dostaję tablicę znaków w formacie uid \n guid \n ls -lnH shutdown \n ls -lnH init \n, gdzie uid, guid to id wykonawcy procesu klienta.
-//Zwracam: 1 - mogę wykonać shutdowna; 2 - mogę wykonać inita; 0 wpp.
-struct wisdom parse_wisdom(char *a){
-	int uid=0, gid=0, uid1, gid1, uid2, gid2, i=0, times;
-	char scall[C], sc1[C], sc2[C], sc3[C], outer[C], tmp[C], perms1[C], perms2[C];
-	FILE *fk, *fk2, *fk3, *fk4;
-	struct wisdom xx;
-
-	//Zerowanie tablic
-	strcpy(scall, "");
-	strcpy(sc1, "");
-	strcpy(sc2, "");
-	strcpy(sc3, "");
-	strcpy(outer, "");
-	strcpy(tmp, "");
-	strcpy(perms1, "");
-	strcpy(perms2, "");
-	
-	//Wzięcie uida i gida z danych na wejściu
-	xx.sores=int_from_pos(&i, a);
-	uid=int_from_pos(&i, a);
-	gid=int_from_pos(&i, a);
-
-	//Parsowanie tekstu w bashu - wyjmuje do pliku informację o id, gid od shutdowna(inita), a także czas podany przez użytkownika
-	strcpy(scall, "echo '");
-	strcat(scall, a);
-	strcpy(sc1, scall);
-	strcpy(sc2, scall);
-	strcpy(sc3, scall);
-	strcat(scall, "' | tail -4 | head -2 | tr -s ' ' | cut -d ' ' -f 3,4");
-	strcat(sc1, "' | tail -4 | head -1 | cut -c 4,7,10");
-	strcat(sc2, "' | tail -3 | head -1 | cut -c 4,7,10");
-	strcat(sc3, "' | tail -2 | head -1");
-	fk=popen(scall, "r");
-	fk2=popen(sc1, "r");
-	fk3=popen(sc2, "r");
-	fk4=popen(sc3, "r");
-	
-	//Przepis z pliku do tablic
-	while (fgets(tmp, sizeof(tmp), fk)!=NULL) strcat(outer, tmp);
-	while (fgets(tmp, sizeof(tmp), fk2)!=NULL) strcat(perms1, tmp);	
-	while (fgets(tmp, sizeof(tmp), fk3)!=NULL) strcat(perms2, tmp);
-	while (fgets(tmp, sizeof(tmp), fk4)!=NULL) strcat(outer, tmp);
-	//Domknięcie pliku
-	pclose(fk), pclose(fk2), pclose(fk3), pclose(fk4);
-	//Znajdowanie kolejnych liczb w tablicy outer
-	i=0;
-	uid1=int_from_pos(&i, outer);
-	gid1=int_from_pos(&i, outer);
-	uid2=int_from_pos(&i, outer);
-	gid2=int_from_pos(&i, outer);
-	times=superint_from_pos(&i, outer);
-	//Zwracanie liczby:
-	//-1 - podano zły czas
-	//>=3 - klient ma prawo do shutdowna
-	//2 - klient ma prawo do inita
-	//0 - klient ma niedostateczne prawa do zamknięcia systemu tymi poleceniami.
-	if (times==-1) 			 	 		  xx.res=-1;
-	else if (uid==0) 		 	 		  xx.res=3+times;
-	else if (uid==uid1 && (perms1[0]=='x' || perms1[0]=='s')) xx.res=3+times;
-	else if (gid==gid1 && (perms1[1]=='x' || perms1[1]=='s')) xx.res=3+times;
-	else if (perms1[2]=='x' || perms1[2]=='t') 		  xx.res=3+times;
-	else if (uid==uid2 && (perms2[0]=='x' || perms2[0]=='s')) xx.res=2;
-	else if (gid==gid2 && (perms2[1]=='x' || perms2[1]=='s')) xx.res=2;
-	else if (perms2[2]=='x' || perms2[2]=='t')	 	  xx.res=2;
-	
-	return xx;
-}
 
 //formulacja polecenia dla klienta
 void grant_wisdom(char dest[], int res, int purp){
@@ -138,14 +77,13 @@ void grant_wisdom(char dest[], int res, int purp){
 		sprintf(vv, "%d", res-3);
 		strcat(dest, vv);
 	}
-	//else if (res==2&&purp==0) strcpy(dest, "init 0");
-	//else if (res==2&&purp==1) strcpy(dest, "init 6");
 }
 
 
 //funkcja opisującą zachowanie wątku - musi przyjmować argument typu (void *) i zwracać (void *)
 void *ThreadBehavior(void *t_data){
     pthread_detach(pthread_self());
+    printf("FAS\n");
     struct thread_data_t *th_data = (struct thread_data_t*)t_data;
     char buffer[C], bf2[C];
     //dostęp do pól struktury: (*th_data).pole
@@ -161,20 +99,53 @@ void *ThreadBehavior(void *t_data){
     }
     s1=0;
     
-    struct wisdom ret=parse_wisdom(buffer);
-    printf("%d %d\n", ret.res, ret.sores);
-    grant_wisdom(bf2, ret.res, ret.sores);
-    
-    while(s1<C){
-        //Wysyłka całości danych
-        x=send((*th_data).csd, bf2+s1, C-s1, 0);
-        if (x<0){
-            fprintf(stderr, "Błąd w wysyłce danych.\n");
-            exit(-1);
-        }
-        s1+=x;
+    if (buffer[0]=='n'){
+	    strcpy(bf2, buffer+2);
+	    pthread_mutex_lock(&mx);
+	    int i=0;
+	    while (i<QUEUE_SIZE){
+		    if (dead[i]==0){
+			    dead[i]=1;
+			    break;
+		    }
+		    i+=1;
+	    }
+	    strcpy(valid[i], bf2);
+	    pthread_mutex_unlock(&mx);
+
+	    printf("TIMES OF GRACE: %d %s\n", i, bf2);
+	    while (1){
+		    pthread_mutex_lock(&arr[i]);
+		    pthread_cond_wait(&nv[i], &arr[i]);
+		    s1=0;
+		    x=send((*th_data).csd, bf2+s1, C-s1, 0);
+		    if (x<0){
+			    fprintf(stderr, "Błąd w wysyłce danych.\n");
+			    pthread_mutex_unlock(&arr[i]);
+			    dead[i]=0;
+			    exit(-1);
+		    }
+		    s1+=x;
+	    }
     }
+
+    else{
+	/*
+	struct wisdom ret=parse_wisdom(buffer);
+    	printf("%d %d\n", ret.res, ret.sores);
+    	grant_wisdom(bf2, ret.res, ret.sores);
     
+   	 while(s1<C){
+        	//Wysyłka całości danych
+        	x=send((*th_data).csd, bf2+s1, C-s1, 0);
+        	if (x<0){
+        	    fprintf(stderr, "Błąd w wysyłce danych.\n");
+        	    exit(-1);
+        	}
+        	s1+=x;
+    	}
+	*/
+    }
     pthread_exit(NULL);
 }
 
@@ -182,7 +153,6 @@ void *ThreadBehavior(void *t_data){
 void handleConnection(int connection_socket_descriptor) {
     //uchwyt na wątek
     pthread_t thread1;
-
     //dane, które zostaną przekazane do wątku
     struct thread_data_t *t_data;
     t_data = malloc(sizeof t_data);

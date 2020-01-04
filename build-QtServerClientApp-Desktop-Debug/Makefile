@@ -766,6 +766,9 @@ moc_mainwindow.cpp: ../../anaconda3/include/qt/QtWidgets/QMainWindow \
 		../../anaconda3/include/qt/QtGui/qtouchdevice.h \
 		../../anaconda3/include/qt/QtWidgets/qtabwidget.h \
 		../../anaconda3/include/qt/QtGui/qicon.h \
+		../../anaconda3/include/qt/QtWidgets/QPushButton \
+		../../anaconda3/include/qt/QtWidgets/qpushbutton.h \
+		../../anaconda3/include/qt/QtWidgets/qabstractbutton.h \
 		../../anaconda3/include/qt/QtWidgets/QLineEdit \
 		../../anaconda3/include/qt/QtWidgets/qlineedit.h \
 		../../anaconda3/include/qt/QtWidgets/qframe.h \
@@ -896,6 +899,9 @@ main.o: ../QtServerClientApp/main.cpp ../QtServerClientApp/mainwindow.h \
 		../../anaconda3/include/qt/QtGui/qtouchdevice.h \
 		../../anaconda3/include/qt/QtWidgets/qtabwidget.h \
 		../../anaconda3/include/qt/QtGui/qicon.h \
+		../../anaconda3/include/qt/QtWidgets/QPushButton \
+		../../anaconda3/include/qt/QtWidgets/qpushbutton.h \
+		../../anaconda3/include/qt/QtWidgets/qabstractbutton.h \
 		../../anaconda3/include/qt/QtWidgets/QLineEdit \
 		../../anaconda3/include/qt/QtWidgets/qlineedit.h \
 		../../anaconda3/include/qt/QtWidgets/qframe.h \
@@ -1016,6 +1022,9 @@ mainwindow.o: ../QtServerClientApp/mainwindow.cpp ../QtServerClientApp/mainwindo
 		../../anaconda3/include/qt/QtGui/qtouchdevice.h \
 		../../anaconda3/include/qt/QtWidgets/qtabwidget.h \
 		../../anaconda3/include/qt/QtGui/qicon.h \
+		../../anaconda3/include/qt/QtWidgets/QPushButton \
+		../../anaconda3/include/qt/QtWidgets/qpushbutton.h \
+		../../anaconda3/include/qt/QtWidgets/qabstractbutton.h \
 		../../anaconda3/include/qt/QtWidgets/QLineEdit \
 		../../anaconda3/include/qt/QtWidgets/qlineedit.h \
 		../../anaconda3/include/qt/QtWidgets/qframe.h \
@@ -1032,9 +1041,6 @@ mainwindow.o: ../QtServerClientApp/mainwindow.cpp ../QtServerClientApp/mainwindo
 		../../anaconda3/include/qt/QtWidgets/qmenu.h \
 		../../anaconda3/include/qt/QtWidgets/QStatusBar \
 		../../anaconda3/include/qt/QtWidgets/qstatusbar.h \
-		../../anaconda3/include/qt/QtWidgets/QPushButton \
-		../../anaconda3/include/qt/QtWidgets/qpushbutton.h \
-		../../anaconda3/include/qt/QtWidgets/qabstractbutton.h \
 		../../anaconda3/include/qt/QtCore/QLine \
 		../../anaconda3/include/qt/QtWidgets/QLabel \
 		../../anaconda3/include/qt/QtWidgets/qlabel.h \
@@ -1042,7 +1048,10 @@ mainwindow.o: ../QtServerClientApp/mainwindow.cpp ../QtServerClientApp/mainwindo
 		../../anaconda3/include/qt/QtCore/qcoreapplication.h \
 		../../anaconda3/include/qt/QtCore/qeventloop.h \
 		../../anaconda3/include/qt/QtCore/QSignalMapper \
-		../../anaconda3/include/qt/QtCore/qsignalmapper.h
+		../../anaconda3/include/qt/QtCore/qsignalmapper.h \
+		../../anaconda3/include/qt/QtCore/QTimer \
+		../../anaconda3/include/qt/QtCore/qtimer.h \
+		../../anaconda3/include/qt/QtCore/qbasictimer.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o mainwindow.o ../QtServerClientApp/mainwindow.cpp
 
 moc_mainwindow.o: moc_mainwindow.cpp 

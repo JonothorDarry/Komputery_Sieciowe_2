@@ -1,3 +1,4 @@
+#include <QListWidget>
 #include "mainwindow.h"
 #include "wundabarnetwerking.h"
 #include <QAction>
@@ -10,16 +11,18 @@
 #include <QCoreApplication>
 #include <QSignalMapper>
 #include <QTimer>
+#include <QCheckBox>
+#include <QHBoxLayout>
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent){
     //Okno samo-w-sobie, stałe
     setWindowTitle("Shutdown Application");
     setMinimumSize(800, 450);
-    int ydis=260;
+    int ydis=360;
 
     //Umiejscawianie tekstów stałych
     QLabel * txt = new QLabel(this);
-    txt -> setGeometry(QRect(275, ydis-200, 300, 100));
+    txt -> setGeometry(QRect(275, ydis-400, 300, 100));
     txt -> setText("What action shall be performed, master?");
 
     txt = new QLabel(this);
@@ -33,6 +36,14 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent){
     txt = new QLabel(this);
     txt -> setGeometry(QRect(100, ydis+50, 150, 40));
     txt -> setText("Wait time (in minutes):");
+
+    QListWidget *vis=new QListWidget(this);
+    vis -> setGeometry(QRect(50, ydis-330, 200, 200));
+    QListWidgetItem *kappa[10];
+    for (int jj=0;jj<10;jj++){
+        kappa[jj]=new QListWidgetItem(this);
+    }
+    vis->addItem(kappa[0]);
 
     //Linie do wpisania inputu - struktura kodu wymaga, aby były dostępne globalnie - także dla triggerów
     tline=new QLineEdit(this);
