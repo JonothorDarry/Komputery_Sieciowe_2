@@ -70,7 +70,6 @@ void handleConnection(int connection_socket_descriptor, char * times, int wal) {
     strcpy(bf2, "");
     //Zapisanie buforów podanymi przez funkcję i znalezionymi w systemie wartościami
     sprintf(buffer, "%d\n", wal);
-    attain_wisdom(buffer);
     strcat(buffer, times);
     strcat(buffer, "\n");
     printf("%s", buffer);

@@ -4,6 +4,7 @@
 #include <QMainWindow>
 #include <QPushButton>
 #include <QLineEdit>
+#include <QListWidget>
 #include <iostream>
 
 class MainWindow : public QMainWindow
@@ -17,13 +18,18 @@ class MainWindow : public QMainWindow
         QLineEdit * tline;
         QLineEdit * tline2;
         QLineEdit * timeline;
+        QLineEdit * sear;
         QPushButton * shut;
         QPushButton * res;
+        QPushButton * searer;
+        QListWidget * vis;
 
     private slots:
       void handleShut();
       void handleRes();
       void handleCan();
+      void handleSear();
+      void handleRem();
 };
 
 

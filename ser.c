@@ -45,47 +45,41 @@ int int_from_pos(int *p, char a[]){
 	return id;
 }
 
-//To samo co poprzednia funkcja, ale wywala błąd po podaniu nie-cyfry
-int superint_from_pos(int *p, char a[]){
-	int i=*p, id=0;
-	while (1){
-		if (a[i]=='\n'||a[i]==' '||a[i]=='\0') break;
-		if (a[i]>57||a[i]<48) return -1;
-		id=id*10+(a[i]-48);
-		i+=1;
-	}
-	*p=i+1;
-
-	return id;
-}
-
 //Dostaję tablicę znaków w formacie uid \n guid \n ls -lnH shutdown \n ls -lnH init \n, gdzie uid, guid to id wykonawcy procesu klienta.
-
 //formulacja polecenia dla klienta
 void grant_wisdom(char dest[], int res, int purp){
 	char vv[10];
 	//W dest polecenie dla klienta, vv - pomocnicza tablica to kopiowania inta
-	if (res==0||res==2) strcpy(dest, "#Operacja się nie powiodła: Niedostateczne uprawnienia\n");
-	else if (res==-1) strcpy(dest, "#Operacja się nie powiodła: Błędny czas\n");
-	else if (res>=3&&purp==0) {
+	if (res==-1) strcpy(dest, "#Operacja się nie powiodła: Błędny czas\n");
+	else if (purp==0) {
 		strcpy(dest, "shutdown -P ");
-		sprintf(vv, "%d", res-3);
+		sprintf(vv, "%d", res);
 		strcat(dest, vv);
 	}
-	else if (res>=3&&purp==1) {
+	else if (purp==1) {
 		strcpy(dest, "shutdown -r ");
-		sprintf(vv, "%d", res-3);
+		sprintf(vv, "%d", res);
 		strcat(dest, vv);
 	}
 }
+
+int sendall(int csd, char* bf2){
+	int s1=0, x;
+	while(s1<C){
+	  	x=send(csd, bf2+s1, C-s1, MSG_NOSIGNAL);
+	    	if (x<0)  return -1;
+    		s1+=x;
+  	}
+	return 0;
+}
+
 
 
 //funkcja opisującą zachowanie wątku - musi przyjmować argument typu (void *) i zwracać (void *)
 void *ThreadBehavior(void *t_data){
     pthread_detach(pthread_self());
-    printf("FAS\n");
     struct thread_data_t *th_data = (struct thread_data_t*)t_data;
-    char buffer[C], bf2[C];
+    char buffer[C], bf2[C], tmpb[C], tosend[C];
     //dostęp do pól struktury: (*th_data).pole
     int x, y, s1=0;
     while(s1<C){
@@ -100,9 +94,26 @@ void *ThreadBehavior(void *t_data){
     s1=0;
     
     if (buffer[0]=='n'){
-	    strcpy(bf2, buffer+2);
+	    //strcpy(bf2, buffer+2);
+	    int i=0, jj=0;
+	    for (jj=2;jj<strlen(buffer)-1;jj+=1) bf2[jj-2]=buffer[jj];
+	    bf2[jj-2]='\0';
+	    printf("%s\n", bf2);
+
 	    pthread_mutex_lock(&mx);
-	    int i=0;
+	    while (i<QUEUE_SIZE){
+		    if (dead[i]==1){
+			    printf ("Names: %s %s\n", bf2, valid[i]);
+			    if (strcmp(valid[i], bf2)==0){
+				    x=sendall((*th_data).csd, "!Nazwa się powtarza!");
+				    pthread_mutex_unlock(&mx);
+				    pthread_exit(NULL);
+			    }
+		    }
+		    i+=1;
+	    }
+
+	    i=0;
 	    while (i<QUEUE_SIZE){
 		    if (dead[i]==0){
 			    dead[i]=1;
@@ -110,41 +121,79 @@ void *ThreadBehavior(void *t_data){
 		    }
 		    i+=1;
 	    }
-	    strcpy(valid[i], bf2);
+	    //strcpy(valid[i], bf2);
+	    for (jj=0;jj<strlen(bf2);jj+=1) valid[i][jj]=bf2[jj];
+	    valid[i][jj]='\0';
+	    
 	    pthread_mutex_unlock(&mx);
-
 	    printf("TIMES OF GRACE: %d %s\n", i, bf2);
 	    while (1){
 		    pthread_mutex_lock(&arr[i]);
 		    pthread_cond_wait(&nv[i], &arr[i]);
-		    s1=0;
-		    x=send((*th_data).csd, bf2+s1, C-s1, 0);
+		    x=sendall((*th_data).csd, prep_command[i]);
 		    if (x<0){
 			    fprintf(stderr, "Błąd w wysyłce danych.\n");
 			    pthread_mutex_unlock(&arr[i]);
 			    dead[i]=0;
-			    exit(-1);
-		    }
-		    s1+=x;
+			    pthread_exit(NULL);
+		  }
+		  pthread_mutex_unlock(&arr[i]);
 	    }
     }
 
-    else{
-	/*
-	struct wisdom ret=parse_wisdom(buffer);
-    	printf("%d %d\n", ret.res, ret.sores);
-    	grant_wisdom(bf2, ret.res, ret.sores);
-    
-   	 while(s1<C){
-        	//Wysyłka całości danych
-        	x=send((*th_data).csd, bf2+s1, C-s1, 0);
-        	if (x<0){
-        	    fprintf(stderr, "Błąd w wysyłce danych.\n");
-        	    exit(-1);
-        	}
-        	s1+=x;
-    	}
-	*/
+    else if (buffer[0]=='2'){
+	strcpy(bf2, buffer+2);
+	strcat(bf2, "\n");
+	strcpy(tosend, "2 ");
+	pthread_mutex_lock(&mx);
+	int j, lst=0, jj, ij;
+	for (j=0;j<C-2;j++){
+		if (bf2[j]=='\0')	break;
+		if ((bf2[j]<'1' || bf2[j]>'9') && (bf2[j]<'A' || bf2[j]>'Z') && (bf2[j]<'a' || bf2[j]>'z')){
+			for (jj=lst;jj<j;jj+=1) tmpb[jj-lst]=bf2[jj];
+			tmpb[jj-lst]='\0';
+			for (ij=0;ij<QUEUE_SIZE;ij+=1){
+				if (dead[ij]==1 && strcmp(tmpb, valid[ij])==0){
+					strcat(tosend, tmpb);
+					strcat(tosend, " ");
+					break;
+			       	}
+			}
+			lst=jj+1;
+		}
+	}
+	pthread_mutex_unlock(&mx);
+	x=sendall((*th_data).csd, tosend);
+    }
+	
+    else if (buffer[0]=='0' || buffer[0]=='1'){
+	char final[C];
+	strcpy(final, "3 ");
+	int it=0, vtime, ope, j, jj, ij, lst=0;
+	if (buffer[0]=='0') ope=0;
+	else ope=1;
+
+	vtime=int_from_pos(&it, buffer+2);
+	strcpy(bf2, buffer+2+it);
+	strcat(bf2, "\n");
+	for (j=0;j<C-2;j++){
+		if (bf2[j]=='\0')	break;
+		if ((bf2[j]<'1' || bf2[j]>'9') && (bf2[j]<'A' || bf2[j]>'Z') && (bf2[j]<'a' || bf2[j]>'z')){
+			for (jj=lst;jj<j;jj+=1) tmpb[jj-lst]=bf2[jj];
+			tmpb[jj-lst]='\0';
+			for (ij=0;ij<QUEUE_SIZE;ij+=1){
+				if (dead[ij]==1 && strcmp(tmpb, valid[ij])==0){
+		    			grant_wisdom(prep_command[ij], vtime, ope);
+					printf("MALEDICTI\n");
+					pthread_cond_signal(&nv[ij]);
+					break;
+			       	}
+			}
+			if (ij==QUEUE_SIZE) strcat(final, tmpb);
+			lst=jj+1;
+		}
+	}
+	x=sendall((*th_data).csd, final);
     }
     pthread_exit(NULL);
 }

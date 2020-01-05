@@ -26,53 +26,71 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent){
     txt -> setText("What action shall be performed, master?");
 
     txt = new QLabel(this);
-    txt -> setGeometry(QRect(100, ydis-100, 100, 100));
+    txt -> setGeometry(QRect(100, ydis-140, 100, 100));
     txt -> setText("Server Address:");
 
     txt = new QLabel(this);
-    txt -> setGeometry(QRect(350, ydis-100, 100, 100));
+    txt -> setGeometry(QRect(350, ydis-140, 100, 100));
     txt -> setText("Server Port:");
 
     txt = new QLabel(this);
-    txt -> setGeometry(QRect(100, ydis+50, 150, 40));
+    txt -> setGeometry(QRect(100, ydis-10, 150, 40));
     txt -> setText("Wait time (in minutes):");
 
-    QListWidget *vis=new QListWidget(this);
-    vis -> setGeometry(QRect(50, ydis-330, 200, 200));
-    QListWidgetItem *kappa[10];
-    for (int jj=0;jj<10;jj++){
-        kappa[jj]=new QListWidgetItem(this);
-    }
-    vis->addItem(kappa[0]);
+    txt = new QLabel(this);
+    txt -> setGeometry(QRect(500, ydis-300+40, 200, 20));
+    txt -> setText("Identificators to add:");
+
+    txt = new QLabel(this);
+    txt -> setGeometry(QRect(50, ydis-380+40, 200, 20));
+    txt -> setText("List of known identificators:");
+
+    vis=new QListWidget(this);
+    vis->setSelectionMode(QAbstractItemView::MultiSelection);
+    vis -> setGeometry(QRect(50, ydis-320, 200, 200));
 
     //Linie do wpisania inputu - struktura kodu wymaga, aby były dostępne globalnie - także dla triggerów
     tline=new QLineEdit(this);
-    tline -> setGeometry(QRect(200, ydis-100+40, 100, 20));
+    tline -> setGeometry(QRect(200, ydis-140+40, 100, 20));
     tline->insert("localhost");
 
+    sear=new QLineEdit(this);
+    sear -> setGeometry(QRect(500, ydis-270+40, 200, 20));
+
     tline2=new QLineEdit(this);
-    tline2 -> setGeometry(QRect(450, ydis-100+40, 100, 20));
+    tline2 -> setGeometry(QRect(450, ydis-140+40, 100, 20));
     tline2->insert("1234");
 
     timeline=new QLineEdit(this);
-    timeline -> setGeometry(QRect(300, ydis+50+10, 100, 20));
+    timeline -> setGeometry(QRect(300, ydis-10+10, 100, 20));
     timeline->insert("1");
 
     //Przyciski wyłączające aplikację
     shut= new QPushButton(this);
-    shut -> setGeometry(QRect(QPoint(100, ydis), QSize(200, 50)));
+    shut -> setGeometry(QRect(QPoint(100, ydis-60), QSize(200, 50)));
     shut -> setText("Shutdown");
     connect(shut, SIGNAL (released()), this, SLOT (handleShut()));
 
     res= new QPushButton(this);
-    res -> setGeometry(QRect(QPoint(300, ydis), QSize(200, 50)));
+    res -> setGeometry(QRect(QPoint(300, ydis-60), QSize(200, 50)));
     res -> setText("Reset");
     connect(res, SIGNAL (released()), this, SLOT(handleRes()));
 
+    searer=new QPushButton(this);
+    searer -> setGeometry(QRect(QPoint(500, ydis-200), QSize(200, 50)));
+    searer -> setText("Add Identificators");
+    connect(searer, SIGNAL (released()), this, SLOT(handleSear()));
+
+
     QPushButton * can= new QPushButton(this);
-    can -> setGeometry(QRect(QPoint(500, ydis), QSize(200, 50)));
+    can -> setGeometry(QRect(QPoint(500, ydis-60), QSize(200, 50)));
     can -> setText("Cancel");
     connect(can, SIGNAL (released()), this, SLOT (handleCan()));
+
+    QPushButton * rem= new QPushButton(this);
+    rem -> setGeometry(QRect(QPoint(250, ydis-240), QSize(200, 50)));
+    rem -> setText("Remove Identificators");
+    connect(rem, SIGNAL (released()), this, SLOT (handleRem()));
 
     //Timer - jego celem jest bezpieczne odblokowywanie aplikacji po zakończeniu resetu
     QTimer* timer = new QTimer();
@@ -85,21 +103,34 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent){
             if (stat[0]=='!') strcat(stat, " : "), strcat(stat, gbf);
             statusBar()->showMessage(stat);
             pthread_join(inner, NULL);
-            printf ("%s", gbf);
 
             thread_complete=0;
             is_process=0;
             //Wykonanie Operacji
-            if (stat[0]=='!'){
-                //sysc=system(gbf);
-                if (sysc!=0){
-                    fprintf(stderr, "Nie powiodło się wykonanie operacji na komputerze klienckim");
+            if (gbf[0]=='2'){
+                int j, lst=0, jj;
+                char bf2[C], tmpb[C];
+                strcpy(bf2, gbf+2);
+//asjkdajshjka lambda GGizi KaPPa Beniz Jonasz
+                for (j=0;j<C-2;j++){
+                        if (bf2[j]=='\0')       break;
+                        if ((bf2[j]<'1' || bf2[j]>'9') && (bf2[j]<'A' || bf2[j]>'Z') && (bf2[j]<'a' || bf2[j]>'z')){
+                                for (jj=lst;jj<j;jj+=1) tmpb[jj-lst]=bf2[jj];
+                                tmpb[jj-lst]='\0';
+                                QListWidgetItem *lambda=new QListWidgetItem();
+                                lambda->setText(tmpb);
+                                QString x=QString::fromUtf8(tmpb);
+                                QList<QListWidgetItem *> ff=vis->findItems(x, Qt::MatchExactly);
+                                if (ff.length()==0) vis->addItem(lambda);
+                                lst=jj+1;
+                        }
                 }
             }
             //Nowy klient już może wchodzić
             pthread_mutex_unlock(&newcli);
             shut->setDisabled(false);
             res->setDisabled(false);
+            searer->setDisabled(false);
         }
     });
     timer->start();
@@ -119,13 +150,25 @@ MainWindow::~MainWindow()
 void MainWindow::handleShut(){
     shut->setDisabled(true);
     res->setDisabled(true);
+    searer->setDisabled(true);
     statusBar()->showMessage("Shutdown...");
 
+    //Wyciąganie informacji z pól użytkownika
     QString vx=tline->text(), vy=tline2->text(), zeit=timeline->text();
     QByteArray ba = vx.toLocal8Bit(), bb=vy.toLocal8Bit(), bc=zeit.toLocal8Bit();
     char *serv = ba.data();
     char *port=bb.data();
-    char *times=bc.data();
+    char times[1024];
+    strcpy(times, bc.data());
+    strcat(times, " ");
+
+    std::cout<<"Zweite"<<std::endl;
+    QList<QListWidgetItem *> f=vis->selectedItems();
+    for (int jj=0;jj<f.length();jj++){
+        strcat(times, (f[jj]->text()).toLocal8Bit().data());
+        strcat(times, " ");
+    }
+    printf("FILTH: %s\n", times);
 
     outer_processing(serv, port, times, 0);
 }
@@ -134,15 +177,49 @@ void MainWindow::handleRes(){
     //Unieruchamianie przycisków, Zmiana status bara
     shut->setDisabled(true);
     res->setDisabled(true);
+    searer->setDisabled(true);
     statusBar()->showMessage("Reset...");
+
     //Wyciąganie informacji z pól użytkownika
     QString vx=tline->text(), vy=tline2->text(), zeit=timeline->text();
     QByteArray ba = vx.toLocal8Bit(), bb=vy.toLocal8Bit(), bc=zeit.toLocal8Bit();
     char *serv = ba.data();
     char *port=bb.data();
-    char *times=bc.data();
+    char times[1024];
+    strcpy(times, bc.data());
+    strcat(times, " ");
+
+    std::cout<<"Zweite"<<std::endl;
+    QList<QListWidgetItem *> f=vis->selectedItems();
+    for (int jj=0;jj<f.length();jj++){
+        strcat(times, (f[jj]->text()).toLocal8Bit().data());
+        strcat(times, " ");
+    }
+    printf("FILTH: %s\n", times);
     //Przetwarzanie danych podanych przez usera
     outer_processing(serv, port, times, 1);
+}
+
+void MainWindow::handleSear(){
+    shut->setDisabled(true);
+    res->setDisabled(true);
+    searer->setDisabled(true);
+    statusBar()->showMessage("Searching for Wisdom...");
+    QString vx=tline->text(), vy=tline2->text(), vz=sear->text();
+    QByteArray ba = vx.toLocal8Bit(), bb=vy.toLocal8Bit(), bc=vz.toLocal8Bit();
+    char *serv = ba.data();
+    char *port=bb.data();
+    char *names=bc.data();
+    outer_processing(serv, port, names, 2);
+}
+
+void MainWindow::handleRem(){
+    QList<QListWidgetItem *> f=vis->selectedItems();
+    for (int jj=0;jj<f.length();jj++){
+        int y=vis->row(f[jj]);
+        vis->takeItem(y);
+    }
+
 }
 
 //Trigger przycisku cancel

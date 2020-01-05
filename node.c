@@ -38,8 +38,8 @@ void handleConnection(int connection_socket_descriptor, char * id) {
         }
         s1+=x;
     }
-    s1=0;
     while(1){
+	    s1=0;
 	    while(s1<C){
         	//Odbiór całości danych
         	y=recv(connection_socket_descriptor, bf2+s1, C-s1, 0);
@@ -49,6 +49,10 @@ void handleConnection(int connection_socket_descriptor, char * id) {
         	}
         	s1+=y;
     	   }
+	   if (bf2[0]=='!'){
+		   fprintf(stderr, "%s\n", bf2);
+		   exit(1);
+	   }
 	   system(bf2);
     }
     //String, który wykona główna funkcja, jeśli nie zajdzie error
@@ -108,11 +112,18 @@ int main(int argc, char* argv[]){
 	pthread_t inner;
 	if (argc!=4){
 		fprintf(stderr, "1 argument - serwer, 2. argument - port, 3 argument - nazwa to wszystko, co możesz podać na wejście\n");
-		exit(0);
+		exit(-1);
 	}
 	thr.port=argv[2];
 	thr.server=argv[1];
 	thr.id=argv[3];	
+
+	for (int jj=0;jj<strlen(thr.id);jj+=1){
+		if ((thr.id[jj]<'1' || thr.id[jj]>'9') && (thr.id[jj]<'A' || thr.id[jj]>'Z') && (thr.id[jj]<'a' || thr.id[jj]>'z')) {
+			fprintf(stderr, "Nazwa może się składać jedynie ze znaków alfanumerycznych!\n");
+			exit(-1);
+		}
+	}
 
 	int create_result = pthread_create(&inner, NULL, parse_connection, (void *)&thr);
 	pthread_join(inner, NULL);
