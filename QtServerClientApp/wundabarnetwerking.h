@@ -78,7 +78,7 @@ void handleConnection(int connection_socket_descriptor, char * times, int wal) {
     while(s1<C){
         //Wysyłka całości danych
         x=send(connection_socket_descriptor, buffer+s1, C-s1, 0);
-        if (x<0){
+        if (x<1){
             fprintf(stderr, "Błąd w wysyłce danych.\n");
             sprintf(stat, "Błąd w wysyłce danych.\n");
             thread_complete=1;
@@ -90,7 +90,7 @@ void handleConnection(int connection_socket_descriptor, char * times, int wal) {
     while(s1<C){
         //Odbiór całości danych
         y=recv(connection_socket_descriptor, bf2+s1, C-s1, 0);
-        if (y<0){
+        if (y<1){
             fprintf(stderr, "Błąd w odbiorze danych.\n");
             sprintf(stat, "Błąd w odbiorze danych.\n");
             thread_complete=1;

@@ -12,47 +12,61 @@
 \begin{document}
 \title{Sprawozdanie z zadania na SK2\\
 \large Zdalne wyłączanie komputerów\\
-\large Sebastian Michoń}
+\large Sebastian Michoń 136770}
 \date{\vspace{-10ex}}
 \maketitle
 
-
+\section{Ogólna zasada działania}
+\begin {enumerate}
+	\item{Node - komputer do wyłączenia - podaje serwerowi(ip serwera i port jako pierwsze 2 argumenty) identyfikator(3. argument)}
+	\item{Serwer uzyskuje identyfikator od node'a i przechowuje go w tablicy}
+	\item{Klient zadaje zapytanie o zbiór identyfikatorów: te z wymienionych, które są zapisane w serwerze zostają wysłane do klienta.}
+	\item{Klient może wysłać polecenia shutdown i reset z podanym czasem i identyfikatorami do wyłączenia do serwera, ten wykonuje dane polecenie na podanym zbiorze identyfikatorów.}
+	
+\end{enumerate}
 \section{Protokół komunikacji}
 \begin {enumerate}
-	\item Klient porozumiewa się z serwerem z użyciem protokołu TCP - zależy mi na niezawodności przesłania uprawnień, 
-	a także przesłania na sprzęt klienta odpowiedniej komendy wyłączającej sprzęt
-	\item Klient po zainicjowaniu połączenia przesyła nasłuchującemu serwerowi - a ściślej wątkowi, który z tego serwera wychodzi bufor tekstu w następującym formacie:\\
+	\item Klient zarządzający (client) i klient do wyłączenia (node) porozumiewają się z serwerem z użyciem protokołu TCP - zależy mi na niezawodności przesłania identyfikatora node'a i polecenia od clienta, 
+	a także przesłania na sprzęt node'a odpowiedniej komendy wyłączającej sprzęt
+	\item Client po zainicjowaniu połączenia przesyła nasłuchującemu serwerowi - a ściślej wątkowi, który z tego serwera wychodzi bufor tekstu w następującym formacie:\\
 	komenda\\
-	uid\\
-	gid\\
-	wynik ls -lnH \$(which shutdown)\\
-	wynik ls -lnH \$(which init)\\
-	czas\\
+	(czas) <lista identyfikatorów>\\
 	Gdzie:\\
-	komenda - jedna cyfra - 0, jeśli shutdown, 1, jeśli reset\\
-	uid, gid - user id, group id, którymi posługuje się aplikacja klienta\\
-	2 kolejne linie są użyteczne do sprawdzenia uprawnień komend, którymi mogę wyłączyć system\\
-	czas - za ile minut ten komputer ma zostać wyłączony? (w minutach)
-	\item Serwer po parsingu tych danych wysyła klientowi bufor tekstu, w którym znajduje się komenda, którą klient ma wykonać na systemie - w szczególności komentarz, jeśli klient jest pozbawiony odpowiednich praw.
+	komenda - jedna cyfra - 0, jeśli shutdown, 1, jeśli reset, 2, jeśli poszukiwanie identyfikatora.\\
+	czas - tylko jeśli komenda to 0 albo 1 - czas, za jaki ma zostać wykonana komenda.\\
+	<lista identyfikatorów> - jeśli komenda=2, lista identyfikatorów, które chcę zdobyć, żeby uzyskać je (możliwość wykonania na nich operacji shutdown i reset). Jeśli 2 - lista identyfikatorów, na których ma zostać wykonane podane polecenie.\\
+	
+	\item Serwer po parsingu tych danych wysyła wszystkim node'om powiązanym z danymi identyfikatorami bufor tekstu, w którym znajduje się komenda, którą klient ma wykonać na systemie.
+	
+	\item Wszystkie komunikaty mają długość 1024 znaków
 \end {enumerate}
 
 \section{Struktura serwera}
 \begin {enumerate}
-	\item Serwer tworzy socketa, manipuluje jego opcjami(setsockopt), wiąże tego socketa z portem 1234 i adresem, następnie zaczyna nasłuchiwać na tym sockecie do 5 połączeń i je akceptować - nawiązane połączenia obsługuje funkcja handleConnection.
+	\item Serwer tworzy socketa, manipuluje jego opcjami(setsockopt), wiąże tego socketa z portem 1234 i adresem, następnie zaczyna nasłuchiwać na tym sockecie do 20 połączeń i je akceptować - nawiązane połączenia obsługuje funkcja handleConnection.
 	\item Funkcja handleConnection przekazuje nowemu wątku wykonującemu funkcję ThreadBehavior deskryptor, z którym może się komunikować i wraca do maina.
-	\item Funkcja ThreadBehavior odbiera od klienta bufor tekstu, wysyła go do funkcji parsującej parse\_wisdom, jej wynik (zamknięty w strukturze wisdom) jest przekazywany do funkcji grant\_wisdom tworzącej stringa przesyłanego do klienta; następnie wychodzę z wątku.
-	\item Funkcja parse\_wisdom operując na danych przesyłanych przez klienta zwraca informację, do jakich komend ma on uprawnienia a także jaki jest czas, za jaki komputer ma zostać wyłączony/zresetowany.
-	\item Funkcja grant\_wisdom operując na wyniku funkcji parsującej zwraca komendę, która zostanie wysłana do klienta.
-
+	\item Funkcja ThreadBehavior odbiera od klienta bufor tekstu: jeśli zaczyna się on od litery n - dane pochodzą od node'a, identyfikator jest dodawany na wolną pozycję w tablicy, następnie blokuję wątek funkcją pthread\_cond\_wait - po wysłaniu sygnału na zmienną warunkową związaną z tym waitem node otrzymuje polecenie od serwera, które ma wykonać.
+	 \item Jeśli bufor zaczyna się od cyfry 2, jest to zapytanie od klienta o identyfikatory - jeśli identyfikator znajduje się w tablicy identyfikatorów serwera, to jest on wysyłany z powrotem; jeśli nie, to nie.
+	 \item Jeśli bufor zaczyna się od cyfry 0 albo 1, jest to zapytanie o wyłączenie określonego zbioru node'ów powiązanych z odpowiednimi identyfikatorami - serwer zapisuje odpowiednie polecenia do tablicy poleceń, a następnie wysyła sygnał na zmienną warunkową.
+	 
 \end {enumerate}
 \section{Struktura klienta}
 \begin{enumerate}
-	\item W aplikacji okienkowej można podać serwer i port, z którym chcę się skomunikować, ponadto czas, za jaki chcę zrestartować/wyłączyć komputer
-	\item Po kliknięciu na przyciski reset/shutdown uruchamia się trigger odpowiadający za przedsięwzięcie odpowiednich operacji po stronie klienta - zamraża on przyciski shutdown i reset, przechodząc do funkcji outer\_processing. Przycisk Cancel zamyka okno i związane z nim operacje, ale 
+	\item W aplikacji okienkowej można podać serwer i port, z którym chcę się skomunikować, ponadto czas, za jaki chcę zrestartować/wyłączyć komputer i identyfikatory, które chcę uzyskać.
+	\item Wpisanie nazw identyfikatorów oddzielonych spacjami przy podaniu adresu i portu serwera wysyła zapyanie do serwera o podane identyfikatory używając funkcji outer\_processing  - jeśli istnieją, trafiają na listę po lewej stronie; jeśli nie, są pomijane.
+	\item Po kliknięciu na przyciski reset/shutdown uruchamia się trigger odpowiadający za przedsięwzięcie odpowiednich operacji po stronie node'a dla identyfikatorów zaznaczonych na liście identyfikatorów - zamraża on wszystkie przyciski poza Cancelem, przechodząc do funkcji outer\_processing. Przycisk Cancel zamyka okno i związane z nim operacje.
 	\item funkcja outer\_processing wsadza dane od gui do struktury i wrzuca je do nowego wątku wykonującego funckję parse\_connection, wychodząc z funkcji bez pthread\_joina - dzięki temu aplikacja się nie wiesza.
 	\item funkcja parse\_connection tworzy socketa, a następnie łączy się z podanym przez użytkownika adresem i portem. Dalej wywołuję funkcję zarządzającą połączeniem handleConnection i zamykam socketa.
 	\item Funkcja handleConnection zdobywa informacje w określonym formacie od funkcji attain\_wisdom o użytkowniku i jego prawach, wysyła je do serwera i otrzymuje odpowiesź - polecenie do wykonania na komputerze, na którym uruchomiony jest klient.
 	\item Timer odczytuje co 1 sekundę informację o tym, czy thread się zakończył - jeśli tak, to wykonywane jest polecenie wysłane przez serwer, odblokowywane są przyciski.
+	\item Przycisk "remove identificators" pozwala usunąć wybrane na liście identyfikatory z listy. 
+\end{enumerate}
+
+\section{Struktura node'a}
+\begin{enumerate}
+	\item Po podaniu serwera, portu i identyfikatora sprawdzana jest nazwa identyfikatora; jeśli nie składa się wyłącznie ze znaków alfanumerycznych, proces się kończy.
+	\item Następnie tworzony jest wątek i nawiązywana jest komunikacja z serwerem w taki sam sposób, jak w przypadku zwykłego klienta.
+	\item Node wysyła serwerowi identyfikator, następnie oczekuje na komunikaty zwrotne - jeśli zaczyna się takowy od ! - error, podany identyfikator jest już używany, jeśli nie od ! - polecenie, które node ma wykonać na swoim komputerze.
 \end{enumerate}
 
 \section{Uruchomienie}
@@ -66,6 +80,11 @@
 		qmake\\
 		make\\
 		./QtServerClientApp
+	\item Uruchomienie node'a:\\
+	cd ...(miejsce, gdzie zaszyty jest projekt)\\
+	gcc node.c -o node -Wall -l pthread\\
+	./node localhost 1234 Random\\
+	\#Wiąże node'a z identyfikatorem o nazwie Random - wywołanie po stronie klienta w polu "Identificators to add" nazwy Random i kliknięcie przycisku "Add identificators" skutkuje dodaniem togo identyfikatora do listy po lewej stronie.
 		
 \end{enumerate}
 

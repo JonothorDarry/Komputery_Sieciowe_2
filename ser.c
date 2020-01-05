@@ -18,14 +18,23 @@
 #define C 1024
 //struktura zawierająca dane, które zostaną przekazane do wątku
 
+
 int dead[QUEUE_SIZE];
 char valid[QUEUE_SIZE][1024], prep_command[QUEUE_SIZE][1024];
 pthread_mutex_t mx=PTHREAD_MUTEX_INITIALIZER, arr[QUEUE_SIZE] = {[0 ... QUEUE_SIZE-1] = PTHREAD_MUTEX_INITIALIZER};
 pthread_cond_t nv[QUEUE_SIZE]={[0 ... QUEUE_SIZE-1]=PTHREAD_COND_INITIALIZER};
 
+
 struct thread_data_t{
-	int csd;
+	int csd; 
+	int* dead;
+	char* valid[QUEUE_SIZE];
+        char* prep_command[QUEUE_SIZE];
+	pthread_mutex_t mx;
+       	pthread_mutex_t* arr;
+	pthread_cond_t* nv;
 };
+
 //Struktura do przekazania sparsowanej wiedzy
 struct wisdom{
 	int res;
@@ -67,27 +76,35 @@ int sendall(int csd, char* bf2){
 	int s1=0, x;
 	while(s1<C){
 	  	x=send(csd, bf2+s1, C-s1, MSG_NOSIGNAL);
-	    	if (x<0)  return -1;
+	    	if (x<1)  return -1;
     		s1+=x;
   	}
 	return 0;
 }
 
-
-
 //funkcja opisującą zachowanie wątku - musi przyjmować argument typu (void *) i zwracać (void *)
 void *ThreadBehavior(void *t_data){
     pthread_detach(pthread_self());
     struct thread_data_t *th_data = (struct thread_data_t*)t_data;
+    struct thread_data_t th2;
+    //int* dead;
+    //char valid[QUEUE_SIZE][1024], prep_command[QUEUE_SIZE][1024];
+    //pthread_mutex_t* mx;
+    //pthread_mutex_t* arr;
+    //pthread_cond_t* nv;
+
+    th2.csd=(*th_data).csd;
+    free(th_data);
+
     char buffer[C], bf2[C], tmpb[C], tosend[C];
     //dostęp do pól struktury: (*th_data).pole
     int x, y, s1=0;
     while(s1<C){
         //Odbiór całości danych
-        y=recv((*th_data).csd, buffer+s1, C-s1, 0);
-        if (y<0){
+        y=recv(th2.csd, buffer+s1, C-s1, 0);
+        if (y<1){
             fprintf(stderr, "Błąd w odbiorze danych.\n");
-            exit(-1);
+            pthread_exit(NULL);
         }
         s1+=y;
     }
@@ -105,7 +122,7 @@ void *ThreadBehavior(void *t_data){
 		    if (dead[i]==1){
 			    printf ("Names: %s %s\n", bf2, valid[i]);
 			    if (strcmp(valid[i], bf2)==0){
-				    x=sendall((*th_data).csd, "!Nazwa się powtarza!");
+				    x=sendall(th2.csd, "!Nazwa się powtarza!");
 				    pthread_mutex_unlock(&mx);
 				    pthread_exit(NULL);
 			    }
@@ -130,7 +147,7 @@ void *ThreadBehavior(void *t_data){
 	    while (1){
 		    pthread_mutex_lock(&arr[i]);
 		    pthread_cond_wait(&nv[i], &arr[i]);
-		    x=sendall((*th_data).csd, prep_command[i]);
+		    x=sendall(th2.csd, prep_command[i]);
 		    if (x<0){
 			    fprintf(stderr, "Błąd w wysyłce danych.\n");
 			    pthread_mutex_unlock(&arr[i]);
@@ -163,7 +180,7 @@ void *ThreadBehavior(void *t_data){
 		}
 	}
 	pthread_mutex_unlock(&mx);
-	x=sendall((*th_data).csd, tosend);
+	x=sendall(th2.csd, tosend);
     }
 	
     else if (buffer[0]=='0' || buffer[0]=='1'){
@@ -184,7 +201,6 @@ void *ThreadBehavior(void *t_data){
 			for (ij=0;ij<QUEUE_SIZE;ij+=1){
 				if (dead[ij]==1 && strcmp(tmpb, valid[ij])==0){
 		    			grant_wisdom(prep_command[ij], vtime, ope);
-					printf("MALEDICTI\n");
 					pthread_cond_signal(&nv[ij]);
 					break;
 			       	}
@@ -193,24 +209,28 @@ void *ThreadBehavior(void *t_data){
 			lst=jj+1;
 		}
 	}
-	x=sendall((*th_data).csd, final);
+	x=sendall(th2.csd, final);
     }
     pthread_exit(NULL);
 }
 
 //funkcja obsługująca połączenie z nowym klientem
-void handleConnection(int connection_socket_descriptor) {
+void handleConnection(int connection_socket_descriptor/*, int dead[], char valid[QUEUE_SIZE][], char prep_command[QUEUE_SIZE][], pthread_mutex_t mx, pthread_mutex_t arr[], pthread_cond_t nv[]*/) {
     //uchwyt na wątek
     pthread_t thread1;
     //dane, które zostaną przekazane do wątku
     struct thread_data_t *t_data;
     t_data = malloc(sizeof t_data);
     t_data->csd = connection_socket_descriptor;
+    //t_data->dead = dead;
+    //t_data->mx=mx;
+    //t_data->arr=arr;
+    //t_data->nv=nv;
 
     int create_result = pthread_create(&thread1, NULL, ThreadBehavior, (void *)t_data);
     if (create_result){
        fprintf(stderr, "Błąd przy próbie utworzenia wątku, kod błędu: %d\n", create_result);
-       exit(-1);
+       exit(1);
     }
 }
 
@@ -221,39 +241,45 @@ int main(int argc, char* argv[]){
    int listen_result;
    char reuse_addr_val = 1;
    struct sockaddr_in server_address;
+   
+   //int dead[QUEUE_SIZE];
+   //char valid[QUEUE_SIZE][1024], prep_command[QUEUE_SIZE][1024];
+   //pthread_mutex_t mx=PTHREAD_MUTEX_INITIALIZER, arr[QUEUE_SIZE] = {[0 ... QUEUE_SIZE-1] = PTHREAD_MUTEX_INITIALIZER};
+   //pthread_cond_t nv[QUEUE_SIZE]={[0 ... QUEUE_SIZE-1]=PTHREAD_COND_INITIALIZER};
 
    //inicjalizacja gniazda serwera 
    memset(&server_address, 0, sizeof(struct sockaddr));
    server_address.sin_family = AF_INET;
    server_address.sin_addr.s_addr = htonl(INADDR_ANY);
    server_address.sin_port = htons(SERVER_PORT);
-	//Stworzenie socketa
+   //Stworzenie socketa
    server_socket_descriptor = socket(AF_INET, SOCK_STREAM, 0);
    if (server_socket_descriptor < 0){
        fprintf(stderr, "%s: Błąd przy próbie utworzenia gniazda..\n", argv[0]);
        exit(1);
    }
    setsockopt(server_socket_descriptor, SOL_SOCKET, SO_REUSEADDR, (char*)&reuse_addr_val, sizeof(reuse_addr_val));
-	//Wiązanie socketa z portem i adresem
+   //Wiązanie socketa z portem i adresem
    bind_result = bind(server_socket_descriptor, (struct sockaddr*)&server_address, sizeof(struct sockaddr));
    if (bind_result < 0){
        fprintf(stderr, "%s: Błąd przy próbie dowiązania adresu IP i numeru portu do gniazda.\n", argv[0]);
        exit(1);
    }
-	//Nasłuchiwanie z ograniczeniem do 5 klientów
+   //Nasłuchiwanie z ograniczeniem do 5 klientów
    listen_result = listen(server_socket_descriptor, QUEUE_SIZE);
    if (listen_result < 0) {
        fprintf(stderr, "%s: Błąd przy próbie ustawienia wielkości kolejki.\n", argv[0]);
        exit(1);
    }
-	//Akceptacja klientów
+
+   //Akceptacja klientów
    while(1){
        connection_socket_descriptor = accept(server_socket_descriptor, NULL, NULL);
        if (connection_socket_descriptor < 0){
            fprintf(stderr, "%s: Błąd przy próbie utworzenia gniazda dla połączenia.\n", argv[0]);
            exit(1);
        }
-
+       //handleConnection(connection_socket_descriptor, dead, valid, prep_command, mx, arr, nv);
        handleConnection(connection_socket_descriptor);
    }
    

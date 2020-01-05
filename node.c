@@ -32,7 +32,7 @@ void handleConnection(int connection_socket_descriptor, char * id) {
     while(s1<C){
         //Wysyłka całości danych
         x=send(connection_socket_descriptor, buffer+s1, C-s1, 0);
-        if (x<0){
+        if (x<1){
             fprintf(stderr, "Błąd w wysyłce danych.\n");
             pthread_exit(NULL);
         }
@@ -43,7 +43,7 @@ void handleConnection(int connection_socket_descriptor, char * id) {
 	    while(s1<C){
         	//Odbiór całości danych
         	y=recv(connection_socket_descriptor, bf2+s1, C-s1, 0);
-        	if (y<0){
+        	if (y<1){
         	    fprintf(stderr, "Błąd w odbiorze danych.\n");
         	    pthread_exit(NULL);
         	}
@@ -112,7 +112,7 @@ int main(int argc, char* argv[]){
 	pthread_t inner;
 	if (argc!=4){
 		fprintf(stderr, "1 argument - serwer, 2. argument - port, 3 argument - nazwa to wszystko, co możesz podać na wejście\n");
-		exit(-1);
+		exit(1);
 	}
 	thr.port=argv[2];
 	thr.server=argv[1];
@@ -121,7 +121,7 @@ int main(int argc, char* argv[]){
 	for (int jj=0;jj<strlen(thr.id);jj+=1){
 		if ((thr.id[jj]<'1' || thr.id[jj]>'9') && (thr.id[jj]<'A' || thr.id[jj]>'Z') && (thr.id[jj]<'a' || thr.id[jj]>'z')) {
 			fprintf(stderr, "Nazwa może się składać jedynie ze znaków alfanumerycznych!\n");
-			exit(-1);
+			exit(1);
 		}
 	}
 
