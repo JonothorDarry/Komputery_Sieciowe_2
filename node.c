@@ -11,6 +11,7 @@
 #include <stdio.h>
 #define C 1024
 
+//Dane przekazywane do wątku
 struct outer_thread{
     char *server;
     char *port;
@@ -38,6 +39,7 @@ void handleConnection(int connection_socket_descriptor, char * id) {
         }
         s1+=x;
     }
+    //Wykonywanie poleceń od serwera w nieskończonej pętli
     while(1){
 	    s1=0;
 	    while(s1<C){
@@ -49,10 +51,12 @@ void handleConnection(int connection_socket_descriptor, char * id) {
         	}
         	s1+=y;
     	   }
+	   //Jeśli odebrano błąd - pokazać go i wyjść z procesu(błąd to powtarzający się identyfikator
 	   if (bf2[0]=='!'){
 		   fprintf(stderr, "%s\n", bf2);
 		   exit(1);
 	   }
+	   //Wykonanie polecenia od serwera
 	   system(bf2);
     }
     //String, który wykona główna funkcja, jeśli nie zajdzie error
@@ -110,6 +114,7 @@ void *parse_connection(void *td){
 int main(int argc, char* argv[]){
 	struct outer_thread thr;
 	pthread_t inner;
+	//3 argumenty na wejście - serwer, port, identyfikator
 	if (argc!=4){
 		fprintf(stderr, "1 argument - serwer, 2. argument - port, 3 argument - nazwa to wszystko, co możesz podać na wejście\n");
 		exit(1);
@@ -118,14 +123,19 @@ int main(int argc, char* argv[]){
 	thr.server=argv[1];
 	thr.id=argv[3];	
 
+	//sprawdzenie, czy identyfikator składa się wyłącznie ze znaków alfanumerycznych
 	for (int jj=0;jj<strlen(thr.id);jj+=1){
 		if ((thr.id[jj]<'1' || thr.id[jj]>'9') && (thr.id[jj]<'A' || thr.id[jj]>'Z') && (thr.id[jj]<'a' || thr.id[jj]>'z')) {
 			fprintf(stderr, "Nazwa może się składać jedynie ze znaków alfanumerycznych!\n");
 			exit(1);
 		}
 	}
-
+	//Przejście do wątka
 	int create_result = pthread_create(&inner, NULL, parse_connection, (void *)&thr);
+	if(create_result<0){
+		fprintf(stderr, "Nie można utworzyć wątku!\n");
+		exit(1);
+	}
 	pthread_join(inner, NULL);
 return 0;}
 
