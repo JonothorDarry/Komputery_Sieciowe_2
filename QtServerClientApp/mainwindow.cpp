@@ -114,7 +114,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent){
                 strcpy(bf2, gbf+2);
                 for (j=0;j<C-2;j++){
                         if (bf2[j]=='\0')       break;
-                        if ((bf2[j]<'1' || bf2[j]>'9') && (bf2[j]<'A' || bf2[j]>'Z') && (bf2[j]<'a' || bf2[j]>'z')){
+                        if ((bf2[j]<'0' || bf2[j]>'9') && (bf2[j]<'A' || bf2[j]>'Z') && (bf2[j]<'a' || bf2[j]>'z')){
                                 for (jj=lst;jj<j;jj+=1) tmpb[jj-lst]=bf2[jj];
                                 tmpb[jj-lst]='\0';
                                 QListWidgetItem *lambda=new QListWidgetItem();
@@ -135,7 +135,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent){
                 strcat(bf2, "\n");
                 for (j=0;j<C-2;j++){
                         if (bf2[j]=='\0')       break;
-                        if ((bf2[j]<'1' || bf2[j]>'9') && (bf2[j]<'A' || bf2[j]>'Z') && (bf2[j]<'a' || bf2[j]>'z')){
+                        if ((bf2[j]<'0' || bf2[j]>'9') && (bf2[j]<'A' || bf2[j]>'Z') && (bf2[j]<'a' || bf2[j]>'z')){
                                 for (jj=lst;jj<j;jj+=1) tmpb[jj-lst]=bf2[jj];
                                 tmpb[jj-lst]='\0';
                                 QString x=QString::fromUtf8(tmpb);
@@ -144,6 +144,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent){
                                     int y=vis->row(ff[jj]);
                                     vis->takeItem(y);
                                 }
+                                lst=jj+1;
                         }
                 }
             }

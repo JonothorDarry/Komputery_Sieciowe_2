@@ -174,7 +174,7 @@ void *ThreadBehavior(void *t_data){
 	//Poszukiwanie w tablicy identyfikatorów kolejnych identyfikatorów podanych przez klienta
 	for (j=0;j<C-2;j++){
 		if (bf2[j]=='\0')	break;
-		if ((bf2[j]<'1' || bf2[j]>'9') && (bf2[j]<'A' || bf2[j]>'Z') && (bf2[j]<'a' || bf2[j]>'z')){
+		if ((bf2[j]<'0' || bf2[j]>'9') && (bf2[j]<'A' || bf2[j]>'Z') && (bf2[j]<'a' || bf2[j]>'z')){
 			for (jj=lst;jj<j;jj+=1) tmpb[jj-lst]=bf2[jj];
 			tmpb[jj-lst]='\0';
 			//Szukanie w tablicy identyfikatorów konkretnego identyfikatora
@@ -216,7 +216,7 @@ void *ThreadBehavior(void *t_data){
 	//Poszukiwanie w tablicy identyfikatorów kolejnych identyfikatorów podanych przez klienta
 	for (j=0;j<C-2;j++){
 		if (bf2[j]=='\0')	break;
-		if ((bf2[j]<'1' || bf2[j]>'9') && (bf2[j]<'A' || bf2[j]>'Z') && (bf2[j]<'a' || bf2[j]>'z')){
+		if ((bf2[j]<'n' || bf2[j]>'9') && (bf2[j]<'A' || bf2[j]>'Z') && (bf2[j]<'a' || bf2[j]>'z')){
 			for (jj=lst;jj<j;jj+=1) tmpb[jj-lst]=bf2[jj];
 			tmpb[jj-lst]='\0';
 			//Szukanie w tablicy identyfikatorów konkretnego identyfikatora
@@ -232,7 +232,7 @@ void *ThreadBehavior(void *t_data){
 			       	}
 			}
 			//Jeśli identyfikatora nie ma - odesłać go w komunikacie do klienta
-			if (ij==QUEUE_SIZE) strcat(final, tmpb);
+			if (ij==QUEUE_SIZE) strcat(final, tmpb), strcat(final, " ");
 			lst=jj+1;
 		}
 	}

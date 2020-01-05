@@ -125,7 +125,7 @@ int main(int argc, char* argv[]){
 
 	//sprawdzenie, czy identyfikator składa się wyłącznie ze znaków alfanumerycznych
 	for (int jj=0;jj<strlen(thr.id);jj+=1){
-		if ((thr.id[jj]<'1' || thr.id[jj]>'9') && (thr.id[jj]<'A' || thr.id[jj]>'Z') && (thr.id[jj]<'a' || thr.id[jj]>'z')) {
+		if ((thr.id[jj]<'0' || thr.id[jj]>'9') && (thr.id[jj]<'A' || thr.id[jj]>'Z') && (thr.id[jj]<'a' || thr.id[jj]>'z')) {
 			fprintf(stderr, "Nazwa może się składać jedynie ze znaków alfanumerycznych!\n");
 			exit(1);
 		}
