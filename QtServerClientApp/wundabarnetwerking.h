@@ -33,34 +33,6 @@ struct outer_thread thr;
 
 //Komenda do wykonania i wypis na statusBar
 char gbf[C], stat[C];
-//Funkcja uzyskująca informację o uprawnieniach użytkownika i dostępie do funkcji init, shutdown; zwraca w tablicy a:
-//Efektywne id usera, grupy, a także całe 2 wiersze(shutdown, init) zwracany przez długiego ls-a podążającego za symlinkiem z numerycznymi uid i gid
-void attain_wisdom(char a[]){
-    char bf[C], dk[C];
-    FILE *fp, *fp3;
-    //Znalezienie permisji
-    fp=popen("sh -c 'which shutdown; which init' | xargs -I{} ls -lnH {}", "r");
-    if (fp==NULL){
-        fprintf(stderr, "Nie powiodło się wykonanie podstawowych poleceń: which i ls");
-        sprintf(stat, "Nie powiodło się wykonanie podstawowych poleceń: which i ls");
-        thread_complete=1;
-        pthread_exit(NULL);
-    }
-    //id usera i grupy, w której jest user - dodane do tablicy na output
-    fp3=popen("id -u; id -g", "r");
-    fgets(dk, sizeof(dk), fp3);
-    strcat(a, dk);
-    fgets(dk, sizeof(dk), fp3);
-    strcat(a,dk);
-
-    //Dodanie do stringa na wyjście permisji
-    while (fgets(bf, sizeof(bf), fp)!=NULL){
-        strcat(a, bf);
-    }
-    //Zamknięcie plików
-    pclose(fp); pclose(fp3);
-}
-
 
 //Zajmuje się połączeniem z serverem, a także zdobyciem informacji o własnych uprawnieniach
 void handleConnection(int connection_socket_descriptor, char * times, int wal) {
@@ -72,7 +44,6 @@ void handleConnection(int connection_socket_descriptor, char * times, int wal) {
     sprintf(buffer, "%d\n", wal);
     strcat(buffer, times);
     strcat(buffer, "\n");
-    printf("%s", buffer);
     //Komunikacja z serverem
     int s1=0, x, y;
     while(s1<C){

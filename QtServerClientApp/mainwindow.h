@@ -23,6 +23,7 @@ class MainWindow : public QMainWindow
         QPushButton * res;
         QPushButton * searer;
         QListWidget * vis;
+        QPushButton * rem;
 
     private slots:
       void handleShut();

@@ -773,6 +773,23 @@ moc_mainwindow.cpp: ../../anaconda3/include/qt/QtWidgets/QMainWindow \
 		../../anaconda3/include/qt/QtGui/qtextformat.h \
 		../../anaconda3/include/qt/QtGui/qpen.h \
 		../../anaconda3/include/qt/QtGui/qtextoption.h \
+		../../anaconda3/include/qt/QtWidgets/QListWidget \
+		../../anaconda3/include/qt/QtWidgets/qlistwidget.h \
+		../../anaconda3/include/qt/QtWidgets/qlistview.h \
+		../../anaconda3/include/qt/QtWidgets/qabstractitemview.h \
+		../../anaconda3/include/qt/QtWidgets/qabstractscrollarea.h \
+		../../anaconda3/include/qt/QtCore/qabstractitemmodel.h \
+		../../anaconda3/include/qt/QtCore/qitemselectionmodel.h \
+		../../anaconda3/include/qt/QtWidgets/qabstractitemdelegate.h \
+		../../anaconda3/include/qt/QtWidgets/qstyleoption.h \
+		../../anaconda3/include/qt/QtWidgets/qabstractspinbox.h \
+		../../anaconda3/include/qt/QtGui/qvalidator.h \
+		../../anaconda3/include/qt/QtCore/qregularexpression.h \
+		../../anaconda3/include/qt/QtWidgets/qslider.h \
+		../../anaconda3/include/qt/QtWidgets/qabstractslider.h \
+		../../anaconda3/include/qt/QtWidgets/qstyle.h \
+		../../anaconda3/include/qt/QtWidgets/qtabbar.h \
+		../../anaconda3/include/qt/QtWidgets/qrubberband.h \
 		mainwindow.h \
 		moc_predefs.h \
 		../../anaconda3/bin/moc
@@ -906,6 +923,23 @@ main.o: main.cpp mainwindow.h \
 		../../anaconda3/include/qt/QtGui/qtextformat.h \
 		../../anaconda3/include/qt/QtGui/qpen.h \
 		../../anaconda3/include/qt/QtGui/qtextoption.h \
+		../../anaconda3/include/qt/QtWidgets/QListWidget \
+		../../anaconda3/include/qt/QtWidgets/qlistwidget.h \
+		../../anaconda3/include/qt/QtWidgets/qlistview.h \
+		../../anaconda3/include/qt/QtWidgets/qabstractitemview.h \
+		../../anaconda3/include/qt/QtWidgets/qabstractscrollarea.h \
+		../../anaconda3/include/qt/QtCore/qabstractitemmodel.h \
+		../../anaconda3/include/qt/QtCore/qitemselectionmodel.h \
+		../../anaconda3/include/qt/QtWidgets/qabstractitemdelegate.h \
+		../../anaconda3/include/qt/QtWidgets/qstyleoption.h \
+		../../anaconda3/include/qt/QtWidgets/qabstractspinbox.h \
+		../../anaconda3/include/qt/QtGui/qvalidator.h \
+		../../anaconda3/include/qt/QtCore/qregularexpression.h \
+		../../anaconda3/include/qt/QtWidgets/qslider.h \
+		../../anaconda3/include/qt/QtWidgets/qabstractslider.h \
+		../../anaconda3/include/qt/QtWidgets/qstyle.h \
+		../../anaconda3/include/qt/QtWidgets/qtabbar.h \
+		../../anaconda3/include/qt/QtWidgets/qrubberband.h \
 		../../anaconda3/include/qt/QtWidgets/QApplication \
 		../../anaconda3/include/qt/QtWidgets/qapplication.h \
 		../../anaconda3/include/qt/QtCore/qcoreapplication.h \
@@ -915,9 +949,8 @@ main.o: main.cpp mainwindow.h \
 		../../anaconda3/include/qt/QtGui/qinputmethod.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o main.o main.cpp
 
-mainwindow.o: mainwindow.cpp mainwindow.h \
-		../../anaconda3/include/qt/QtWidgets/QMainWindow \
-		../../anaconda3/include/qt/QtWidgets/qmainwindow.h \
+mainwindow.o: mainwindow.cpp ../../anaconda3/include/qt/QtWidgets/QListWidget \
+		../../anaconda3/include/qt/QtWidgets/qlistwidget.h \
 		../../anaconda3/include/qt/QtWidgets/qtwidgetsglobal.h \
 		../../anaconda3/include/qt/QtGui/qtguiglobal.h \
 		../../anaconda3/include/qt/QtCore/qglobal.h \
@@ -943,6 +976,10 @@ mainwindow.o: mainwindow.cpp mainwindow.h \
 		../../anaconda3/include/qt/QtCore/qversiontagging.h \
 		../../anaconda3/include/qt/QtGui/qtgui-config.h \
 		../../anaconda3/include/qt/QtWidgets/qtwidgets-config.h \
+		../../anaconda3/include/qt/QtWidgets/qlistview.h \
+		../../anaconda3/include/qt/QtWidgets/qabstractitemview.h \
+		../../anaconda3/include/qt/QtWidgets/qabstractscrollarea.h \
+		../../anaconda3/include/qt/QtWidgets/qframe.h \
 		../../anaconda3/include/qt/QtWidgets/qwidget.h \
 		../../anaconda3/include/qt/QtGui/qwindowdefs.h \
 		../../anaconda3/include/qt/QtCore/qobjectdefs.h \
@@ -1017,14 +1054,28 @@ mainwindow.o: mainwindow.cpp mainwindow.h \
 		../../anaconda3/include/qt/QtCore/qfiledevice.h \
 		../../anaconda3/include/qt/QtGui/qvector2d.h \
 		../../anaconda3/include/qt/QtGui/qtouchdevice.h \
-		../../anaconda3/include/qt/QtWidgets/qtabwidget.h \
+		../../anaconda3/include/qt/QtCore/qabstractitemmodel.h \
+		../../anaconda3/include/qt/QtCore/qitemselectionmodel.h \
+		../../anaconda3/include/qt/QtWidgets/qabstractitemdelegate.h \
+		../../anaconda3/include/qt/QtWidgets/qstyleoption.h \
+		../../anaconda3/include/qt/QtWidgets/qabstractspinbox.h \
+		../../anaconda3/include/qt/QtGui/qvalidator.h \
+		../../anaconda3/include/qt/QtCore/qregularexpression.h \
 		../../anaconda3/include/qt/QtGui/qicon.h \
+		../../anaconda3/include/qt/QtWidgets/qslider.h \
+		../../anaconda3/include/qt/QtWidgets/qabstractslider.h \
+		../../anaconda3/include/qt/QtWidgets/qstyle.h \
+		../../anaconda3/include/qt/QtWidgets/qtabbar.h \
+		../../anaconda3/include/qt/QtWidgets/qtabwidget.h \
+		../../anaconda3/include/qt/QtWidgets/qrubberband.h \
+		mainwindow.h \
+		../../anaconda3/include/qt/QtWidgets/QMainWindow \
+		../../anaconda3/include/qt/QtWidgets/qmainwindow.h \
 		../../anaconda3/include/qt/QtWidgets/QPushButton \
 		../../anaconda3/include/qt/QtWidgets/qpushbutton.h \
 		../../anaconda3/include/qt/QtWidgets/qabstractbutton.h \
 		../../anaconda3/include/qt/QtWidgets/QLineEdit \
 		../../anaconda3/include/qt/QtWidgets/qlineedit.h \
-		../../anaconda3/include/qt/QtWidgets/qframe.h \
 		../../anaconda3/include/qt/QtGui/qtextcursor.h \
 		../../anaconda3/include/qt/QtGui/qtextformat.h \
 		../../anaconda3/include/qt/QtGui/qpen.h \
@@ -1048,7 +1099,14 @@ mainwindow.o: mainwindow.cpp mainwindow.h \
 		../../anaconda3/include/qt/QtCore/qsignalmapper.h \
 		../../anaconda3/include/qt/QtCore/QTimer \
 		../../anaconda3/include/qt/QtCore/qtimer.h \
-		../../anaconda3/include/qt/QtCore/qbasictimer.h
+		../../anaconda3/include/qt/QtCore/qbasictimer.h \
+		../../anaconda3/include/qt/QtWidgets/QCheckBox \
+		../../anaconda3/include/qt/QtWidgets/qcheckbox.h \
+		../../anaconda3/include/qt/QtWidgets/QHBoxLayout \
+		../../anaconda3/include/qt/QtWidgets/qboxlayout.h \
+		../../anaconda3/include/qt/QtWidgets/qlayout.h \
+		../../anaconda3/include/qt/QtWidgets/qlayoutitem.h \
+		../../anaconda3/include/qt/QtWidgets/qgridlayout.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o mainwindow.o mainwindow.cpp
 
 moc_mainwindow.o: moc_mainwindow.cpp 
