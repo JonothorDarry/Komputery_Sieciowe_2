@@ -63,6 +63,7 @@ void grant_wisdom(char dest[], int res, int purp){
 int sendall(int csd, char* bf2){
 	int s1=0, x;
 	while(s1<C){
+		printf("Pure\n");
 	  	x=send(csd, bf2+s1, C-s1, MSG_NOSIGNAL);
 	    	if (x<1)  return -1;
     		s1+=x;
@@ -135,6 +136,7 @@ void *ThreadBehavior(void *t_data){
 		    x=sendall(th2.csd, "!Kolejka identyfikatorów serwera jest pełna!");
 		    if (x<0) finitosen();
 		    fprintf(stderr, "Kolejka identyfikatorów jest pełna!");
+		    pthread_mutex_unlock(&mx);
 		    pthread_exit(NULL);
 	    }
 
@@ -238,9 +240,9 @@ void *ThreadBehavior(void *t_data){
 	}
 	//Wysyłka danych do klienta - tylko te identyfikatory, które już znikły (np. bo komputery zostały wyłączone - albo ctrl+c)
 	x=sendall(th2.csd, final);
-	if (x<0) finitosen();
     	//Odblokowanie dostępu do tablicy identyfikatorów
-    	pthread_mutex_unlock(&mx);
+	pthread_mutex_unlock(&mx);
+	if (x<0) finitosen();
     }
     pthread_exit(NULL);
 }
