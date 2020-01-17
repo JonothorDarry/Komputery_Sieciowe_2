@@ -18,16 +18,15 @@
 #define C 1024
 //struktura zawierająca dane, które zostaną przekazane do wątku
 
-//mx - mutex na tablicę identyfikatorów, arr - mutex na kolejne identyfikatory, nv - zmienna warunkowa, na której czekają identyfikatory
-pthread_mutex_t mx=PTHREAD_MUTEX_INITIALIZER, arr[QUEUE_SIZE] = {[0 ... QUEUE_SIZE-1] = PTHREAD_MUTEX_INITIALIZER};
-pthread_cond_t nv[QUEUE_SIZE]={[0 ... QUEUE_SIZE-1]=PTHREAD_COND_INITIALIZER};
-
 
 struct thread_data_t{
 	int csd;
 	int *dead;
 	char *valid[QUEUE_SIZE];
 	char *prep_command[QUEUE_SIZE];
+	pthread_mutex_t *arr;
+	pthread_mutex_t *mx;
+	pthread_cond_t *nv;
 };
 
 //jestem w pozycji p tablicy znaków a: znajduję inta skrytego od tej pozycji do końca inta(endline or space), zwracam go, zmieniając przy okacji pozycję na następnego niezbadanego chara w tablicy.
@@ -90,7 +89,10 @@ void *ThreadBehavior(void *t_data){
 	int *dead=(*th_data).dead;
 	char *valid[QUEUE_SIZE];
 	char *prep_command[QUEUE_SIZE];
-    
+    pthread_mutex_t *arr=(*th_data).arr;
+    pthread_cond_t *nv=(*th_data).nv;
+    pthread_mutex_t *mx=(*th_data).mx;
+
 	for (int i=0;i<QUEUE_SIZE;i+=1){
 		valid[i]=(*th_data).valid[i];
 		prep_command[i]=(*th_data).prep_command[i];
@@ -115,14 +117,14 @@ void *ThreadBehavior(void *t_data){
 	    for (jj=2;jj<strlen(buffer)-1;jj+=1) bf2[jj-2]=buffer[jj];
 	    bf2[jj-2]='\0';
 	    //Blokada na muteksie odpowiedzialnym za tablicę z identyfikatorami
-	    pthread_mutex_lock(&mx);
+	    pthread_mutex_lock(mx);
 	    //Sprawdzenie, czy istnieją 2 takie identyfikatory, których nazwy się powtarzają
 	    while (i<QUEUE_SIZE){
 		    if (dead[i]==1){
 			    if (strcmp(valid[i], bf2)==0){
 				    x=sendall(th2.csd, "!Nazwa się powtarza!");
 				    if (x<0) finitosen();
-				    pthread_mutex_unlock(&mx);
+				    pthread_mutex_unlock(mx);
 				    pthread_exit(NULL);
 			    }
 		    }
@@ -144,7 +146,7 @@ void *ThreadBehavior(void *t_data){
 		    x=sendall(th2.csd, "!Kolejka identyfikatorów serwera jest pełna!");
 		    if (x<0) finitosen();
 		    fprintf(stderr, "Kolejka identyfikatorów jest pełna!");
-		    pthread_mutex_unlock(&mx);
+		    pthread_mutex_unlock(mx);
 		    pthread_exit(NULL);
 	    }
 
@@ -154,7 +156,7 @@ void *ThreadBehavior(void *t_data){
 	    //Czekanie na komunikaty
 	    pthread_mutex_lock(&arr[i]);
 	    //Odblokowanie dostępu do tablicy identyfikatorów
-	    pthread_mutex_unlock(&mx);
+	    pthread_mutex_unlock(mx);
 
 	    while (1){
 		    //Oczekiwanie na zmiennej warunkowej
@@ -179,7 +181,7 @@ void *ThreadBehavior(void *t_data){
 	//do wysłania do klienta
 	strcpy(tosend, "2 ");
 	//Zablokowanie dostępu do tablicy identyfikatorów
-	pthread_mutex_lock(&mx);
+	pthread_mutex_lock(mx);
 	int j, lst=0, jj, ij;
 	//Poszukiwanie w tablicy identyfikatorów kolejnych identyfikatorów podanych przez klienta
 	for (j=0;j<C-2;j++){
@@ -199,7 +201,7 @@ void *ThreadBehavior(void *t_data){
 		}
 	}
 	//Odblokowanie dostępu do tablicy identyfikatorów
-	pthread_mutex_unlock(&mx);
+	pthread_mutex_unlock(mx);
 	//Wysłanie klientowi identyfikatorów, które on wymienił, a które istnieją
 	x=sendall(th2.csd, tosend);
 	if (x<0) finitosen();
@@ -221,7 +223,7 @@ void *ThreadBehavior(void *t_data){
 	strcat(bf2, "\n");
 
 	//Zablokowanie dostępu do tablicy identyfikatorów
-	pthread_mutex_lock(&mx);
+	pthread_mutex_lock(mx);
 
 	//Poszukiwanie w tablicy identyfikatorów kolejnych identyfikatorów podanych przez klienta
 	for (j=0;j<C-2;j++){
@@ -249,20 +251,24 @@ void *ThreadBehavior(void *t_data){
 	//Wysyłka danych do klienta - tylko te identyfikatory, które już znikły (np. bo komputery zostały wyłączone - albo ctrl+c)
 	x=sendall(th2.csd, final);
     	//Odblokowanie dostępu do tablicy identyfikatorów
-	pthread_mutex_unlock(&mx);
+	pthread_mutex_unlock(mx);
 	if (x<0) finitosen();
     }
     pthread_exit(NULL);
 }
 
 //funkcja obsługująca połączenie z nowym klientem
-void handleConnection(int connection_socket_descriptor, int dead[], char valid[][C], char prep_command[][C]/*, pthread_mutex_t mx, pthread_mutex_t arr[], pthread_cond_t nv[]*/) {
+void handleConnection(int connection_socket_descriptor, int dead[], char valid[][C], char prep_command[][C], pthread_mutex_t *mx, pthread_mutex_t arr[], pthread_cond_t nv[]) {
     //uchwyt na wątek
     pthread_t thread1;
     //dane, które zostaną przekazane do wątku
     struct thread_data_t *t_data;
-    t_data = malloc(sizeof t_data);
+	t_data = malloc(sizeof t_data);
 	t_data->dead=dead;
+	t_data->arr=arr;
+	t_data->mx=mx;
+	t_data->nv=nv;
+
  	t_data->csd = connection_socket_descriptor;
 	for (int i=0;i<QUEUE_SIZE;i+=1){
 		(t_data->prep_command[i])=prep_command[i];
@@ -289,7 +295,19 @@ int main(int argc, char* argv[]){
    static int dead[QUEUE_SIZE];
    static char valid[QUEUE_SIZE][C], prep_command[QUEUE_SIZE][C];
 
-   //inicjalizacja gniazda serwera 
+
+	//mx - mutex na tablicę identyfikatorów, arr - mutex na kolejne identyfikatory, nv - zmienna warunkowa, na której czekają identyfikatory
+	static pthread_mutex_t mx, arr[QUEUE_SIZE];
+	static pthread_cond_t nv[QUEUE_SIZE];
+   
+	pthread_mutex_init(&mx, NULL);
+	for (int i=0;i<QUEUE_SIZE;i+=1){
+		pthread_mutex_init(&arr[i], NULL);
+		pthread_cond_init(&nv[i], NULL);
+	}
+
+
+	//inicjalizacja gniazda serwera 
    memset(&server_address, 0, sizeof(struct sockaddr));
    server_address.sin_family = AF_INET;
    server_address.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -321,7 +339,7 @@ int main(int argc, char* argv[]){
            fprintf(stderr, "%s: Błąd przy próbie utworzenia gniazda dla połączenia.\n", argv[0]);
            exit(1);
        }
-       handleConnection(connection_socket_descriptor, dead, valid, prep_command);
+       handleConnection(connection_socket_descriptor, dead, valid, prep_command, &mx, arr, nv);
    }
    
    close(server_socket_descriptor);
