@@ -18,16 +18,16 @@
 #define C 1024
 //struktura zawierająca dane, które zostaną przekazane do wątku
 
-//dead - czy indeks i-ty przechowuje identyfikator?, valid[i] - i-ty identyfikator, prep_command - komenda dla i-tego identyfikatora
-int dead[QUEUE_SIZE];
-char valid[QUEUE_SIZE][1024], prep_command[QUEUE_SIZE][1024];
 //mx - mutex na tablicę identyfikatorów, arr - mutex na kolejne identyfikatory, nv - zmienna warunkowa, na której czekają identyfikatory
 pthread_mutex_t mx=PTHREAD_MUTEX_INITIALIZER, arr[QUEUE_SIZE] = {[0 ... QUEUE_SIZE-1] = PTHREAD_MUTEX_INITIALIZER};
 pthread_cond_t nv[QUEUE_SIZE]={[0 ... QUEUE_SIZE-1]=PTHREAD_COND_INITIALIZER};
 
 
 struct thread_data_t{
-	int csd; 
+	int csd;
+	int *dead;
+	char *valid[QUEUE_SIZE];
+	char *prep_command[QUEUE_SIZE];
 };
 
 //jestem w pozycji p tablicy znaków a: znajduję inta skrytego od tej pozycji do końca inta(endline or space), zwracam go, zmieniając przy okacji pozycję na następnego niezbadanego chara w tablicy.
@@ -87,7 +87,15 @@ void *ThreadBehavior(void *t_data){
     struct thread_data_t *th_data = (struct thread_data_t*)t_data;
     struct thread_data_t th2;
     th2.csd=(*th_data).csd;
-    //Uwolnienie zaalokowanych uprzednio mallociem danych
+	int *dead=(*th_data).dead;
+	char *valid[QUEUE_SIZE];
+	char *prep_command[QUEUE_SIZE];
+    
+	for (int i=0;i<QUEUE_SIZE;i+=1){
+		valid[i]=(*th_data).valid[i];
+		prep_command[i]=(*th_data).prep_command[i];
+	}
+	//Uwolnienie zaalokowanych uprzednio mallociem danych
     free(th_data);
     char buffer[C], bf2[C], tmpb[C];
     //dostęp do pól struktury: (*th_data).pole
@@ -248,13 +256,18 @@ void *ThreadBehavior(void *t_data){
 }
 
 //funkcja obsługująca połączenie z nowym klientem
-void handleConnection(int connection_socket_descriptor/*, int dead[], char valid[QUEUE_SIZE][], char prep_command[QUEUE_SIZE][], pthread_mutex_t mx, pthread_mutex_t arr[], pthread_cond_t nv[]*/) {
+void handleConnection(int connection_socket_descriptor, int dead[], char valid[][C], char prep_command[][C]/*, pthread_mutex_t mx, pthread_mutex_t arr[], pthread_cond_t nv[]*/) {
     //uchwyt na wątek
     pthread_t thread1;
     //dane, które zostaną przekazane do wątku
     struct thread_data_t *t_data;
     t_data = malloc(sizeof t_data);
-    t_data->csd = connection_socket_descriptor;
+	t_data->dead=dead;
+ 	t_data->csd = connection_socket_descriptor;
+	for (int i=0;i<QUEUE_SIZE;i+=1){
+		(t_data->prep_command[i])=prep_command[i];
+		(t_data->valid[i])=valid[i];
+	}
 
     //Tworzenie wątku
     int create_result = pthread_create(&thread1, NULL, ThreadBehavior, (void *)t_data);
@@ -271,6 +284,11 @@ int main(int argc, char* argv[]){
    int listen_result;
    char reuse_addr_val = 1;
    struct sockaddr_in server_address;
+   
+   //dead - czy indeks i-ty przechowuje identyfikator?, valid[i] - i-ty identyfikator, prep_command - komenda dla i-tego identyfikatora
+   static int dead[QUEUE_SIZE];
+   static char valid[QUEUE_SIZE][C], prep_command[QUEUE_SIZE][C];
+
    //inicjalizacja gniazda serwera 
    memset(&server_address, 0, sizeof(struct sockaddr));
    server_address.sin_family = AF_INET;
@@ -303,7 +321,7 @@ int main(int argc, char* argv[]){
            fprintf(stderr, "%s: Błąd przy próbie utworzenia gniazda dla połączenia.\n", argv[0]);
            exit(1);
        }
-       handleConnection(connection_socket_descriptor);
+       handleConnection(connection_socket_descriptor, dead, valid, prep_command);
    }
    
    close(server_socket_descriptor);
